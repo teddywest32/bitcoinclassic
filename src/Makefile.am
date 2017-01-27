@@ -75,6 +75,7 @@ BITCOIN_CORE_H = \
   AdminServer.h \
   AdminRPCBinding.h \
   addrman.h \
+  allowed_args.h \
   amount.h \
   Application.h \
   arith_uint256.h \
