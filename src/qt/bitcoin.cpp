@@ -203,6 +203,8 @@ public:
 #endif
     /// parameter interaction/setup based on rules
     void parameterSetup();
+    /// Create platform style
+    void createPlatformStyle();
     /// Create options model
     void createOptionsModel(bool resetSettings);
     /// Create main window
@@ -304,19 +306,10 @@ BitcoinApplication::BitcoinApplication(int &argc, char **argv):
     paymentServer(0),
     walletModel(0),
 #endif
-    returnValue(0)
+    returnValue(0),
+    platformStyle(0)
 {
     setQuitOnLastWindowClosed(false);
-
-    // UI per-platform customization
-    // This must be done inside the BitcoinApplication constructor, or after it, because
-    // PlatformStyle::instantiate requires a QApplication
-    std::string platformName;
-    platformName = GetArg("-uiplatform", BitcoinGUI::DEFAULT_UIPLATFORM);
-    platformStyle = PlatformStyle::instantiate(QString::fromStdString(platformName));
-    if (!platformStyle) // Fall back to "other" if specified name not found
-        platformStyle = PlatformStyle::instantiate("other");
-    assert(platformStyle);
 }
 
 BitcoinApplication::~BitcoinApplication()
@@ -347,6 +340,16 @@ void BitcoinApplication::createPaymentServer()
     paymentServer = new PaymentServer(this);
 }
 #endif
+
+void BitcoinApplication::createPlatformStyle()
+{
+    std::string platformName;
+    platformName = GetArg("-uiplatform", BitcoinGUI::DEFAULT_UIPLATFORM);
+    platformStyle = PlatformStyle::instantiate(QString::fromStdString(platformName));
+    if (!platformStyle) // Fall back to "other" if specified name not found
+        platformStyle = PlatformStyle::instantiate("other");
+    assert(platformStyle);
+}
 
 void BitcoinApplication::createOptionsModel(bool resetSettings)
 {
@@ -511,13 +514,9 @@ int main(int argc, char *argv[])
 {
     SetupEnvironment();
 
-    /// 1. Parse command-line options. These take precedence over anything else.
-    // Command-line options take precedence:
-    ParseParameters(argc, argv);
-
     // Do not refer to data directory yet, this can be overridden by Intro::pickDataDirectory
 
-    /// 2. Basic Qt initialization (not dependent on parameters or configuration)
+    /// 1. Basic Qt initialization (not dependent on parameters or configuration)
 #if QT_VERSION < 0x050000
     // Internal string conversion is all UTF-8
     QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
@@ -548,6 +547,16 @@ int main(int argc, char *argv[])
     //   Need to pass name here as CAmount is a typedef (see http://qt-project.org/doc/qt-5/qmetatype.html#qRegisterMetaType)
     //   IMPORTANT if it is no longer a typedef use the normal variant above
     qRegisterMetaType< CAmount >("CAmount");
+
+    /// 2. Parse command-line options. These take precedence over anything else.
+    // Command-line options take precedence:
+    try {
+        ParseParameters(argc, argv, AllowedArgs::BitcoinQt);
+    } catch (const std::exception& e) {
+        QMessageBox::critical(0, QObject::tr("Bitcoin Classic"),
+                              QObject::tr("Error: Cannot parse program options: %1.").arg(e.what()));
+        return false;
+    }
 
     /// 3. Application identification
     // must be set before OptionsModel is initialized or translations are loaded,
@@ -591,6 +600,9 @@ int main(int argc, char *argv[])
                               QObject::tr("Error: Cannot parse configuration file: %1. Only use key=value syntax.").arg(e.what()));
         return false;
     }
+
+    // UI per-platform customization
+    app.createPlatformStyle();
 
     flexTransActive = GetBoolArg("-flextrans", false);
 

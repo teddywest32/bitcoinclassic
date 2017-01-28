@@ -14,6 +14,7 @@
 #include "config/bitcoin-config.h"
 #endif
 
+#include "allowed_args.h"
 #include "compat.h"
 #include "tinyformat.h"
 #include "utiltime.h"
@@ -114,7 +115,7 @@ static inline bool error(const char* format)
 }
 
 void PrintExceptionContinue(const std::exception *pex, const char* pszThread);
-void ParseParameters(int argc, const char*const argv[]);
+void ParseParameters(int argc, const char*const argv[], CheckArgFunc checkArgFunc);
 void FileCommit(FILE *fileout);
 bool TruncateFile(FILE *file, unsigned int length);
 int RaiseFileDescriptorLimit(int nMinFD);
