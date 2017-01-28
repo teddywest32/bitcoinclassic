@@ -110,8 +110,6 @@ testScripts = [
     'p2p-versionbits-warning.py',
     'bip68-sequence.py',
     'transactionv4.py',
-]
-testScriptsExt = [
     'bip9-softforks.py',
     'bip65-cltv.py',
     'bip65-cltv-p2p.py',
@@ -121,13 +119,16 @@ testScriptsExt = [
     'getblocktemplate_proposals.py',
     'txn_doublespend.py',
     'txn_clone.py --mineblock',
-    'pruning.py',
     'invalidateblock.py',
-#    'rpcbind_test.py', #temporary, bug in libevent, see #6655
-    'smartfees.py',
     'maxblocksinflight.py',
     'p2p-acceptblock.py',
     'mempool_packages.py',
+]
+
+# these tests are very timeconsuming
+testScriptsExt = [
+    'pruning.py',
+    'smartfees.py',
     'maxuploadtarget.py',
 ]
 
