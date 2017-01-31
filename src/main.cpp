@@ -3091,10 +3091,11 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     }
 
     // Size limits
-    std::int32_t nSizeLimit = Policy::blockSizeAcceptLimit();
-    if (block.vtx.empty() || block.vtx.size() > (uint32_t) nSizeLimit || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > (uint32_t) nSizeLimit)
-        return state.DoS(100, error("CheckBlock(): size limits failed"),
-                         REJECT_INVALID, "bad-blk-length");
+    if (block.vtx.empty())
+        return state.DoS(100, error("CheckBlock(): Missing coinbase tx"), REJECT_INVALID, "bad-blk-length");
+    const std::int32_t nSizeLimit = Policy::blockSizeAcceptLimit();
+    if (block.vtx.size() > (uint32_t) nSizeLimit || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > (uint32_t) nSizeLimit)
+        return state.DoS(3, error("CheckBlock(): block larger than user-limit"), REJECT_EXCEEDSLIMIT, "bad-blk-length");
 
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
