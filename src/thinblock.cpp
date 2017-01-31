@@ -10,6 +10,7 @@
 #include "main.h"
 #include "chainparams.h"
 #include "txmempool.h"
+#include "utilstrencodings.h"
 
 #include <consensus/validation.h>
 #include <boost/foreach.hpp>
@@ -19,55 +20,36 @@
 std::map<uint256, uint64_t> mapThinBlockTimer;
 
 CXThinBlock::CXThinBlock(const CBlock& block, CBloomFilter* filter)
+    : collision(false)
 {
     header = block.GetBlockHeader();
-    this->collision = false;
 
     unsigned int nTx = block.vtx.size();
     vTxHashes.reserve(nTx);
     std::set<uint64_t> setPartialTxHash;
-    for (unsigned int i = 0; i < nTx; i++)
-    {
+    for (unsigned int i = 0; i < nTx; i++) {
         const uint256 hash256 = block.vtx[i].GetHash();
         uint64_t cheapHash = hash256.GetCheapHash();
         vTxHashes.push_back(cheapHash);
+printf ("%d] %s | %lX\n", (int) i, HexStr(hash256).c_str(), hash256.GetCheapHash());
 
-        if (setPartialTxHash.count(cheapHash))
-                this->collision = true;
+        if (collision || setPartialTxHash.count(cheapHash))
+            collision = true;
+if (collision) printf ("%d]  collision\n", (int) i);
         setPartialTxHash.insert(cheapHash);
 
         // Find the transactions that do not match the filter.
         // These are the ones we need to relay back to the requesting peer.
         // NOTE: We always add the first tx, the coinbase as it is the one
         //       most often missing.
-        if ((filter && !filter->contains(hash256)) || i == 0)
+        if (i == 0 || (filter && !filter->contains(hash256)))
             vMissingTx.push_back(block.vtx[i]);
     }
 }
 
-CXThinBlock::CXThinBlock(const CBlock& block)
+CXThinBlock::CXThinBlock()
+    : collision(false)
 {
-    header = block.GetBlockHeader();
-    this->collision = false;
-
-    unsigned int nTx = block.vtx.size();
-    vTxHashes.reserve(nTx);
-    std::set<uint64_t> setPartialTxHash;
-
-    for (unsigned int i = 1; i < nTx; i++)
-    {
-        const uint256 hash256 = block.vtx[i].GetHash();
-        uint64_t cheapHash = hash256.GetCheapHash();
-        vTxHashes.push_back(cheapHash);
-
-        if (setPartialTxHash.count(cheapHash))
-                this->collision = true;
-        setPartialTxHash.insert(cheapHash);
-
-        // We always add the first tx, the coinbase as it is the one
-        // most often missing.
-        if (i == 0) vMissingTx.push_back(block.vtx[i]);
-    }
 }
 
 CXThinBlockTx::CXThinBlockTx(uint256 blockHash, std::vector<CTransaction>& vTx)

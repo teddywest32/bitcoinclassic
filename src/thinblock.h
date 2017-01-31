@@ -30,9 +30,8 @@ public:
     bool collision;
 
 public:
-    CXThinBlock(const CBlock& block, CBloomFilter* filter); // Use the filter to determine which txns the client has
-    CXThinBlock(const CBlock& block);  // Assume client has all of the transactions (except coinbase)
-    CXThinBlock() {}
+    CXThinBlock(const CBlock& block, CBloomFilter* filter = 0); // Use the filter to determine which txns the client has
+    CXThinBlock();
 
     ADD_SERIALIZE_METHODS
 
