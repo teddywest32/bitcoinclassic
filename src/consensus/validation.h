@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
+// Copyright (c) 2017 Tom Zander <tomz@freedommail.ch>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -13,6 +14,7 @@ static const unsigned char REJECT_MALFORMED = 0x01;
 static const unsigned char REJECT_INVALID = 0x10;
 static const unsigned char REJECT_OBSOLETE = 0x11;
 static const unsigned char REJECT_DUPLICATE = 0x12;
+static const unsigned char REJECT_EXCEEDSLIMIT = 0x13;
 static const unsigned char REJECT_NONSTANDARD = 0x40;
 static const unsigned char REJECT_DUST = 0x41;
 static const unsigned char REJECT_INSUFFICIENTFEE = 0x42;
