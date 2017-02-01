@@ -29,13 +29,11 @@ CXThinBlock::CXThinBlock(const CBlock& block, CBloomFilter* filter)
     std::set<uint64_t> setPartialTxHash;
     for (unsigned int i = 0; i < nTx; i++) {
         const uint256 hash256 = block.vtx[i].GetHash();
-        uint64_t cheapHash = hash256.GetCheapHash();
+        const uint64_t cheapHash = hash256.GetCheapHash();
         vTxHashes.push_back(cheapHash);
-printf ("%d] %s | %lX\n", (int) i, HexStr(hash256).c_str(), hash256.GetCheapHash());
 
         if (collision || setPartialTxHash.count(cheapHash))
             collision = true;
-if (collision) printf ("%d]  collision\n", (int) i);
         setPartialTxHash.insert(cheapHash);
 
         // Find the transactions that do not match the filter.
