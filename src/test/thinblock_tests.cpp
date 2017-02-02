@@ -40,13 +40,6 @@ CBloomFilter TestFilter() { //TODO all this should not be here...
 BOOST_AUTO_TEST_SUITE(thinblock_tests)
 
 BOOST_AUTO_TEST_CASE(thinblock_test) {
-
-# if __BYTE_ORDER == __LITTLE_ENDIAN
-    printf("Little Endian\n");
-#else
-    printf("Big Endian\n");
-#endif
-
     /* empty filter */
     CBloomFilter filter = TestFilter();
     CBlock block = TestBlock();
