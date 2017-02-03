@@ -842,6 +842,8 @@ void BitcoinGUI::message(const QString &title, const QString &message, unsigned 
 
         showNormalIfMinimized();
         QMessageBox mBox((QMessageBox::Icon)nMBoxIcon, strTitle, message, buttons, this);
+        if (style & CClientUIInterface::BTN_ABORT)
+            mBox.setDefaultButton(QMessageBox::Abort);
         int r = mBox.exec();
         if (ret != NULL)
             *ret = r == QMessageBox::Ok;
