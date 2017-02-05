@@ -26,17 +26,11 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
     QWidget(0, f), curAlignment(0)
 {
     // set reference point, paddings
-    int paddingRight            = 50;
-    int paddingTop              = 50;
-    int titleVersionVSpace      = 17;
+    int paddingRight = 50;
+    int paddingTop = 50;
+    int titleVersionVSpace = 17;
     int titleCopyrightVSpaceCore = 40;
     int titleCopyrightVSpaceClassic = 54;
-
-    float fontFactor            = 1.0;
-    float devicePixelRatio      = 1.0;
-#if QT_VERSION > 0x050100
-    devicePixelRatio = ((QGuiApplication*)QCoreApplication::instance())->devicePixelRatio();
-#endif
 
     // define text to place
     QString titleText       = tr("Bitcoin Classic");
@@ -48,16 +42,30 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
     QString font            = QApplication::font().toString();
 
     // create a bitmap according to device pixelratio
-    QSize splashSize(480*devicePixelRatio,320*devicePixelRatio);
+    float devicePixelRatio;
+    bool useMorePixels = false;
+#if QT_VERSION > 0x050100
+    devicePixelRatio = qobject_cast<QGuiApplication*>(QCoreApplication::instance())->devicePixelRatio();
+    if (qFuzzyCompare(devicePixelRatio, (float) 1)) {
+        useMorePixels = true;
+        devicePixelRatio = logicalDpiX() / (float) 96;
+    }
+#else
+    devicePixelRatio = 1.0;
+#endif
+
+    QSize splashSize(480 * devicePixelRatio, 320 * devicePixelRatio);
     pixmap = QPixmap(splashSize);
 
 #if QT_VERSION > 0x050100
-    // change to HiDPI if it makes sense
-    pixmap.setDevicePixelRatio(devicePixelRatio);
+    if (!useMorePixels) // change to HiDPI if it makes sense
+        pixmap.setDevicePixelRatio(devicePixelRatio);
 #endif
 
     QPainter pixPaint(&pixmap);
     pixPaint.setPen(QColor(100,100,100));
+    if (useMorePixels) // change to HiDPI if it makes sense
+        pixPaint.scale(devicePixelRatio, devicePixelRatio);
 
     // draw a slightly radial gradient
     QRadialGradient gradient(QPoint(0,0), splashSize.width()/devicePixelRatio);
@@ -74,18 +82,20 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
 
     pixPaint.drawPixmap(rectIcon, icon);
 
-    // check font size and drawing with
-    pixPaint.setFont(QFont(font, 33*fontFactor));
-    QFontMetrics fm = pixPaint.fontMetrics();
+    // check font size and drawing width
+    float fontFactor = 1.0;
+    if (useMorePixels) // fonts are set in Point, but we used painter::scale(), so we have to counter that.
+        fontFactor /= devicePixelRatio;
+    pixPaint.setFont(QFont(font, 33 * fontFactor));
+    QFontMetrics fm(pixPaint.fontMetrics());
     int titleTextWidth  = fm.width(titleText);
-    if(titleTextWidth > 160) {
-        // strange font rendering, Arial probably not found
-        fontFactor = 0.75;
+    if (titleTextWidth > 160) { // strange font rendering, Arial probably not found
+        fontFactor *= 0.75;
+        pixPaint.setFont(QFont(font, 33 * fontFactor));
+        fm = pixPaint.fontMetrics();
+        titleTextWidth  = fm.width(titleText);
     }
 
-    pixPaint.setFont(QFont(font, 33*fontFactor));
-    fm = pixPaint.fontMetrics();
-    titleTextWidth  = fm.width(titleText);
     pixPaint.drawText(pixmap.width()/devicePixelRatio-titleTextWidth-paddingRight,paddingTop,titleText);
 
     pixPaint.setFont(QFont(font, 15*fontFactor));
@@ -117,6 +127,9 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
 
     // Set window title
     setWindowTitle(titleText + " " + titleAddText);
+
+    if (useMorePixels) // if scaling uses more pixels, actually allow the windows to have larger pixelsize
+        devicePixelRatio = 1;
 
     // Resize window and move to center of desktop, disallow resizing
     QRect r(QPoint(), QSize(pixmap.size().width()/devicePixelRatio,pixmap.size().height()/devicePixelRatio));
