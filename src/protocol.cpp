@@ -41,7 +41,12 @@ const char *XBLOCKTX="xblocktx";
 const char *GET_XBLOCKTX="get_xblocktx";
 const char *GET_XTHIN="get_xthin";
 // BUIP010 Xtreme Thinblocks - end section
-};
+const char *VERSION2="buversion"; // unfortunately the unlimited team wasn't very creative with naming.
+const char *VERACK2="buverack";
+const char *XPEDITEDREQUEST="req_xpedited";
+const char *XPEDITEDBLK="Xb";
+const char *XPEDITEDTxn="Xt";
+}
 
 static const char* ppszTypeName[] =
 {
@@ -87,8 +92,13 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::XTHINBLOCK,
     NetMsgType::XBLOCKTX,
     NetMsgType::GET_XBLOCKTX,
-    NetMsgType::GET_XTHIN
+    NetMsgType::GET_XTHIN,
     // BUIP010 Xtreme Thinbocks - end section
+    NetMsgType::VERSION2,
+    NetMsgType::VERACK2,
+    NetMsgType::XPEDITEDREQUEST,
+    NetMsgType::XPEDITEDBLK,
+    NetMsgType::XPEDITEDTxn,
 };
 const static std::vector<std::string> allNetMessageTypesVec(allNetMessageTypes, allNetMessageTypes+ARRAYLEN(allNetMessageTypes));
 

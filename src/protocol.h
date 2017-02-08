@@ -233,6 +233,33 @@ extern const char *REJECT;
  */
 extern const char *SENDHEADERS;
 
+/**
+ * Version2, request a verack2.
+ * @since protocol version 80002
+ */
+extern const char *VERSION2;
+/**
+ * verack2, a followup message to verack since we can't extend or change old
+ * messages. This one is meant to exchange our port number.
+ * @since protocol version 80002
+ */
+extern const char *VERACK2;
+/**
+ * Send this if your node prefers to receive new block announcements
+ * and transactions directly without INVs
+ * @since protocol version 80000
+ */
+extern const char *XPEDITEDREQUEST;
+/**
+ * Block or transactions sent without explicit solicitation
+ * @since protocol version 80000
+ */
+extern const char *XPEDITEDBLK;
+/**
+ * Block or transactions sent without explicit solicitation
+ * @since protocol version 80000
+ */
+extern const char *XPEDITEDTXN;
 };
 
 /* Get a vector of all valid message types (see above) */

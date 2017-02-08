@@ -41,6 +41,9 @@ public:
         READWRITE(vTxHashes);
         READWRITE(vMissingTx);
     }
+
+    inline CInv GetInv() { return CInv(MSG_BLOCK, header.GetHash()); }
+    bool process(CNode* pfrom);
 };
 
 // This class is used for retrieving a list of still missing transactions after receiving a "thinblock" message.
@@ -91,13 +94,37 @@ public:
 
 bool HaveThinblockNodes();
 bool CheckThinblockTimer(const uint256 &hash);
-inline bool IsThinBlocksEnabled()
-{
+inline bool IsThinBlocksEnabled() {
     return GetBoolArg("-use-thinblocks", true);
 }
 bool IsChainNearlySyncd();
 CBloomFilter createSeededBloomFilter(const std::vector<uint256>& vOrphanHashes);
 void LoadFilter(CNode *pfrom, CBloomFilter *filter);
 void HandleBlockMessage(CNode *pfrom, const std::string &strCommand, const CBlock &block, const CInv &inv);
+
+
+// TODO namespace the new methods?
+
+// Checks to see if the node is configured in bitcoin.conf to be an expedited block source and if so, request them.
+void CheckAndRequestExpeditedBlocks(CNode* pfrom);
+void SendExpeditedBlock(CXThinBlock& thinBlock, unsigned char hops, const CNode* skip = nullptr);
+void SendExpeditedBlock(const CBlock& block, const CNode* skip = nullptr);
+void HandleExpeditedRequest(CDataStream& vRecv, CNode* pfrom);
+bool IsRecentlyExpeditedAndStore(const uint256& hash);
+// process incoming unsolicited block
+void HandleExpeditedBlock(CDataStream& vRecv,CNode* pfrom);
+
+extern CCriticalSection cs_xval;
+
+enum {
+  EXPEDITED_STOP   = 1,
+  EXPEDITED_BLOCKS = 2,
+  EXPEDITED_TXNS   = 4,
+};
+
+enum {
+  EXPEDITED_MSG_HEADER   = 1,
+  EXPEDITED_MSG_XTHIN    = 2,
+};
 
 #endif

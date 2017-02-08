@@ -375,6 +375,8 @@ public:
     uint64_t nGetXBlockTxLastTime;  // The last time a get_xblocktx request was made
     // Xtreme Thinblocks: end section
 
+    uint16_t addrFromPort;
+
 protected:
 
     // Denial-of-service detection/prevention

@@ -2341,6 +2341,7 @@ unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", DEFAULT_MAX
 
 CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn) :
     ssSend(SER_NETWORK, INIT_PROTO_VERSION),
+    addrFromPort(0),
     addrKnown(5000, 0.001),
     filterInventoryKnown(50000, 0.000001)
 {
@@ -2414,6 +2415,8 @@ CNode::~CNode()
     if (pfilter)
         delete pfilter;
     delete pThinBlockFilter;
+
+    addrFromPort = 0;
 
     GetNodeSignals().FinalizeNode(GetId());
 }

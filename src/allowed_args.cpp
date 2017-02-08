@@ -87,6 +87,7 @@ const std::set<std::string> BITCOIND_ARGS
     "enforcenodebloom",
     "excessiveblocksize",
     "externalip",
+    "expeditedblock",
     "flextrans",
     "flushwallet",
     "forcednsseed",
