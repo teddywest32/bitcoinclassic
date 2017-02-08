@@ -161,6 +161,7 @@ BITCOIN_CORE_H = \
   torcontrol.h \
   txdb.h \
   txmempool.h \
+  txorphancache.h \
   ui_interface.h \
   uint256.h \
   undo.h \
@@ -204,6 +205,7 @@ libbitcoin_server_a_SOURCES = \
   init.cpp \
   dbwrapper.cpp \
   main.cpp \
+  txorphancache.cpp \
   merkleblock.cpp \
   miner.cpp \
   net.cpp \
