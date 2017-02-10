@@ -39,7 +39,7 @@ void TxUtils::RandomTransaction(CMutableTransaction &tx, RandomTransactionType s
     tx.vout.clear();
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
-    int outs = single == SingleOutput ? ins : (insecure_rand() % 4) + 1;
+    int outs = single == SingleOutput ? 1 : (insecure_rand() % 4) + 1;
     for (int in = 0; in < ins; in++) {
         tx.vin.push_back(CTxIn());
         CTxIn &txin = tx.vin.back();

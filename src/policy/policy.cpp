@@ -60,7 +60,10 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
 bool IsStandardTx(const CTransaction& tx, std::string& reason)
 {
     if (tx.nVersion > CTransaction::MAX_STANDARD_VERSION || tx.nVersion < 1) {
-        if (flexTransActive && tx.nVersion > 4) {
+        bool okVersion = false;
+        if (flexTransActive && tx.nVersion == 4)
+            okVersion = true;
+        if (!okVersion) {
             reason = "version";
             return false;
         }

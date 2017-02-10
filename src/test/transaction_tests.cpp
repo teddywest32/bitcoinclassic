@@ -711,4 +711,37 @@ BOOST_AUTO_TEST_CASE(test_hashtype_version4)
     TxUtils::disallowNewTransactions();
 }
 
+BOOST_AUTO_TEST_CASE(test_version4_isStandard)
+{
+    CMutableTransaction tx;
+    TxUtils::RandomTransaction(tx, TxUtils::SingleOutput);
+    // clean them a little because nSequence has some double meanings.
+    for (unsigned int in = 1; in < tx.vin.size(); ++in) { // only keep the sequenc on the first one.
+        tx.vin[in].nSequence = CTxIn::SEQUENCE_FINAL;
+    }
+    // our test doesn't seem to create a standard output script. So do that here.
+    CKey key;
+    key.MakeNewKey(true);
+    tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+
+    std::string reason;
+    tx.nVersion = 1;
+    BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), true);
+    tx.nVersion = 2;
+    BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), true);
+    tx.nVersion = 3;
+    BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), false);
+    tx.nVersion = 4;
+    BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), false);
+    TxUtils::allowNewTransactions();
+    tx.nVersion = 3;
+    BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), false);
+    tx.nVersion = 5;
+    BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), false);
+    tx.nVersion = 4;
+    BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), true);
+
+    TxUtils::disallowNewTransactions();
+}
+
 BOOST_AUTO_TEST_SUITE_END()
