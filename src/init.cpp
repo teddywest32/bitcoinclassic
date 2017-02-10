@@ -455,6 +455,7 @@ std::string HelpMessage(HelpMessageMode mode)
     if (showDebug)
         strUsage += HelpMessageOpt("-nodebug", "Turn off debugging messages, same as -debug=0");
     strUsage += HelpMessageOpt("-flextrans", "Accept and relay transactions of version 4");
+    strUsage += HelpMessageOpt("-ft-strict", "On incoming FlexTrans transactions reject tx that have not specified tokens. default: false");
     strUsage += HelpMessageOpt("-gen", strprintf(_("Generate coins (default: %u)"), DEFAULT_GENERATE));
     strUsage += HelpMessageOpt("-genproclimit=<n>", strprintf(_("Set the number of threads for coin generation if enabled (-1 = all cores, default: %d)"), DEFAULT_GENERATE_THREADS));
     strUsage += HelpMessageOpt("-gencoinbase=<pubkey>", "When generating coins a coinbase has to be provided in the form of a public key");

@@ -741,6 +741,42 @@ BOOST_AUTO_TEST_CASE(test_version4_isStandard)
     tx.nVersion = 4;
     BOOST_CHECK_EQUAL(IsStandardTx(tx, reason), true);
 
+    // 0 simple, is standard;
+    // 1 add illegal token. not standard
+    // 2 add illegal token, but dont set flag. is standard;
+    for (int i = 0 ; i < 3; ++i) {
+        try {
+            CDataStream s(0, 4);
+            ser_writedata32(s, 4);
+            CMFToken hash(Consensus::TxInPrevHash, tx.vin[0].prevout.hash);
+            hash.Serialize(s, 0, 4);
+            CMFToken outValue(Consensus::TxOutValue, (uint64_t) 1000);
+            outValue.Serialize(s, 0, 4);
+            std::vector<char> script(tx.vout[0].scriptPubKey.begin(), tx.vout[0].scriptPubKey.end());
+            CMFToken outScript(Consensus::TxOutScript, script);
+            outScript.Serialize(s, 0, 4);
+
+            if (i >= 1) {
+                CMFToken invalidToken(10, true); // 9 is currently the max, 10 is thus a soft-fork and will be ignored
+                invalidToken.Serialize(s, 0, 4);
+            }
+            CMFToken end(Consensus::TxEnd, true);
+            end.Serialize(s, 0, 4);
+
+            std::vector<char> txData(s.begin(), s.end());
+            CDataStream stream(txData, 0, 4);
+            CTransaction tx2;
+            tx2.Unserialize(stream, 0, 4);
+
+            mapArgs.clear();
+            if (i < 2)
+                mapArgs["-ft-strict"] = "1";
+            BOOST_CHECK_EQUAL(IsStandardTx(tx2, reason), i != 1);
+        } catch (...) {
+            BOOST_CHECK(false);
+        }
+    }
+
     TxUtils::disallowNewTransactions();
 }
 

@@ -89,6 +89,7 @@ const std::set<std::string> BITCOIND_ARGS
     "externalip",
     "expeditedblock",
     "flextrans",
+    "ft-strict",
     "flushwallet",
     "forcednsseed",
     "fuzzmessagestest",

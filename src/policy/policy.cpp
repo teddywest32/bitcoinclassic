@@ -69,6 +69,31 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
         }
     }
 
+    // In Flexible Transactions there are no-operation fields that are undefined
+    // in order to allow future expansion. Normal nodes would ignore those tags
+    // but a node (for instance a miner) may want to reject transactions that use
+    // those not yet defined ones because we know this client will always have
+    // the latest ruleset.
+    if (tx.nVersion == 4 && flexTransActive && GetBoolArg("-ft-strict", false)) {
+        CDataStream ds(0, 4);
+        tx.Serialize(ds, 0, 4);
+        std::vector<char> txData(ds.begin(), ds.end());
+        CDataStream stream(txData, 0, 4);
+        try {
+            (void) ser_readdata32(stream);
+            auto tokens = UnserializeCMFs(stream, Consensus::TxEnd, 0, 4);
+            for (unsigned int index = 0; index < tokens.size(); ++index) {
+                if (tokens[index].tag > Consensus::CoinbaseMessage) {
+                    reason = "ft-strict";
+                    return false;
+                }
+            }
+        } catch(std::exception &e) {
+            assert(false); // not being able to parse the thing I just saved is a coding error, not a data error.
+            return false;
+        }
+    }
+
     // Extremely large transactions with lots of inputs can cost the network
     // almost as much to process as they cost the sender in fees, because
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
