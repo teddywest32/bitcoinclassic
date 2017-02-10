@@ -153,6 +153,7 @@ std::vector<char> loadTransaction(const std::vector<CMFToken> &tokens, std::vect
             seenCoinbaseMessage = true;
             break;
         }
+        case Consensus::TxEnd:
         case Consensus::TxInputStackItem:
         case Consensus::TxInputStackItemContinued: {
             if (signatureCount == -1) { // copy all of the input tags
@@ -163,6 +164,8 @@ std::vector<char> loadTransaction(const std::vector<CMFToken> &tokens, std::vect
                 }
                 txData = std::vector<char>(stream.begin(), stream.end());
             }
+            if (token.tag == Consensus::TxEnd)
+                return txData;
             if (signatureCount < 0 || token.tag == Consensus::TxInputStackItem)
                 signatureCount++;
             if (static_cast<int>(inputs.size()) <= signatureCount)
@@ -176,9 +179,6 @@ std::vector<char> loadTransaction(const std::vector<CMFToken> &tokens, std::vect
                 inputs[signatureCount].scriptSig << data;
             break;
         }
-        case Consensus::TxEnd:
-            return txData;
-
             // TxOut* don't have a pre-defined order, just that both are required so they always have to come in pairs.
         case Consensus::TxOutValue:
             if (!inMainTx) throw std::runtime_error("wrong section");
