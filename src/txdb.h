@@ -62,4 +62,13 @@ public:
     bool LoadBlockIndexGuts();
 };
 
+struct BlockHashShortener {
+    inline size_t operator()(const uint256& hash) const {
+        return hash.GetCheapHash();
+    }
+};
+typedef boost::unordered_map<uint256, CBlockIndex*, BlockHashShortener> BlockMap;
+// TODO move this into CBlockTreeDB and protect it with a mutex
+extern BlockMap mapBlockIndex;
+
 #endif // BITCOIN_TXDB_H

@@ -13,6 +13,7 @@
 #include "netbase.h"
 #include "rpcserver.h"
 #include "timedata.h"
+#include "txdb.h"
 #include "util.h"
 #include "utilmoneystr.h"
 #include "wallet.h"

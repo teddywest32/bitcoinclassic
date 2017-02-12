@@ -8,6 +8,7 @@
 #include "consensus/consensus.h"
 #include "main.h"
 #include "timedata.h"
+#include <txdb.h>
 #include "wallet/wallet.h"
 
 #include <stdint.h>
