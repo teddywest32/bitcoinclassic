@@ -115,7 +115,7 @@ static inline bool error(const char* format)
 }
 
 void PrintExceptionContinue(const std::exception *pex, const char* pszThread);
-void ParseParameters(int argc, const char*const argv[], CheckArgFunc checkArgFunc);
+void ParseParameters(int argc, const char*const argv[], const AllowedArgs::AllowedArgs& allowedArgs);
 void FileCommit(FILE *fileout);
 bool TruncateFile(FILE *file, unsigned int length);
 int RaiseFileDescriptorLimit(int nMinFD);
