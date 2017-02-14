@@ -16,6 +16,8 @@
 class CBlockFileInfo;
 class CBlockIndex;
 struct CDiskTxPos;
+class CDiskBlockPos;
+class CChainParams;
 class uint256;
 
 //! -dbcache default (MiB)
@@ -71,7 +73,18 @@ struct BlockHashShortener {
     }
 };
 typedef boost::unordered_map<uint256, CBlockIndex*, BlockHashShortener> BlockMap;
-// TODO move this into CBlockTreeDB and protect it with a mutex
+// TODO move this into BlocksDB and protect it with a mutex
 extern BlockMap mapBlockIndex;
+
+
+/** Open a block file (blk?????.dat) */
+FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+/** Open an undo file (rev?????.dat) */
+FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+/** Translation to a filesystem path */
+boost::filesystem::path GetBlockPosFilename(int fileIndex, const char *prefix);
+/** Import blocks from an external file */
+bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskBlockPos *dbp = 0);
+
 
 #endif // BITCOIN_TXDB_H
