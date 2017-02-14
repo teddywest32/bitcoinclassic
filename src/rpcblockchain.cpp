@@ -16,7 +16,7 @@
 #include "streams.h"
 #include "sync.h"
 #include "txmempool.h"
-#include "txdb.h"
+#include "BlocksDB.h"
 #include "timedata.h"
 #include "util.h"
 #include "utilstrencodings.h"

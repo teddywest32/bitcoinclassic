@@ -29,6 +29,7 @@
 #include "script/sigcache.h"
 #include "scheduler.h"
 #include "txdb.h"
+#include "BlocksDB.h"
 #include "txmempool.h"
 #include "torcontrol.h"
 #include "ui_interface.h"

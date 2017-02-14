@@ -14,7 +14,7 @@
 #include "miner.h"
 #include "pubkey.h"
 #include "random.h"
-#include "txdb.h"
+#include <BlocksDB.h>
 #include "txmempool.h"
 #include "ui_interface.h"
 #include "util.h"

@@ -22,7 +22,7 @@
 #include "script/sign.h"
 #include "script/standard.h"
 #include "txmempool.h"
-#include "txdb.h"
+#include "BlocksDB.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
 #ifdef ENABLE_WALLET

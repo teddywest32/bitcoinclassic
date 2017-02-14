@@ -26,6 +26,7 @@
 #include "script/standard.h"
 #include "thinblock.h"
 #include "tinyformat.h"
+#include "BlocksDB.h"
 #include "txdb.h"
 #include "txmempool.h"
 #include "txorphancache.h"

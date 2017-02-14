@@ -12,7 +12,7 @@
 #include "rpcserver.h"
 #include "streams.h"
 #include "sync.h"
-#include "txdb.h"
+#include "BlocksDB.h"
 #include "txmempool.h"
 #include "utilstrencodings.h"
 #include "version.h"
