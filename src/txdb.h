@@ -42,13 +42,28 @@ public:
 };
 
 /** Access to the block database (blocks/index/) */
-class CBlockTreeDB : public CDBWrapper
+class BlocksDB : public CDBWrapper
 {
 public:
-    CBlockTreeDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    /**
+     * returns the singleton instance of the BlocksDB. Please be aware that
+     *     you need to call createInstance once in the app-init before it is allowed to call instance()
+     */
+    static BlocksDB &instance();
+    /**
+     * Deletes an old and creates a new instance of the BlocksDB singleton.
+     * @param[in] nCacheSize  Configures various leveldb cache settings.
+     * @param[in] fWipe       If true, remove all existing data.
+     * @see instance()
+     */
+    static void createInstance(size_t nCacheSize, bool fWipe);
+    /// Deletes old singleton and creates a new one for unit testing.
+    static void createTestInstance(size_t nCacheSize);
+
 private:
-    CBlockTreeDB(const CBlockTreeDB&);
-    void operator=(const CBlockTreeDB&);
+    BlocksDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    BlocksDB(const BlocksDB&);
+    void operator=(const BlocksDB&);
 public:
     bool WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo);
     bool ReadBlockFileInfo(int nFile, CBlockFileInfo &fileinfo);
@@ -59,7 +74,11 @@ public:
     bool WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos> > &list);
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
-    bool LoadBlockIndexGuts();
+    /// Reads and caches all info about blocks.
+    bool CacheAllBlockInfos();
+
+private:
+    static BlocksDB *s_instance;
 };
 
 struct BlockHashShortener {
