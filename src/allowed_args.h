@@ -5,9 +5,10 @@
 #ifndef BITCOIN_ALLOWED_ARGS_H
 #define BITCOIN_ALLOWED_ARGS_H
 
+#include <functional>
 #include <list>
 #include <map>
-#include <functional>
+#include <string>
 
 namespace AllowedArgs {
 
