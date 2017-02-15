@@ -91,7 +91,7 @@ bool AppInit(int argc, char* argv[])
             strUsage += "\n" + _("Usage:") + "\n" +
                   "  bitcoind [options]                     " + _("Start Bitcoin Classic Daemon") + "\n";
 
-            strUsage += "\n" + HelpMessage(HMM_BITCOIND);
+            strUsage += "\n" + allowedArgs.helpMessage();
         }
 
         fprintf(stdout, "%s", strUsage.c_str());

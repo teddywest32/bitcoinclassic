@@ -104,7 +104,7 @@ public:
         pchMessageStart[1] = 0xbe;
         pchMessageStart[2] = 0xb4;
         pchMessageStart[3] = 0xd9;
-        nDefaultPort = 8333;
+        nDefaultPort = DEFAULT_MAINNET_PORT;
         nMaxTipAge = 24 * 60 * 60;
         nPruneAfterHeight = 100000;
 
@@ -196,7 +196,7 @@ public:
         pchMessageStart[1] = 0x11;
         pchMessageStart[2] = 0x09;
         pchMessageStart[3] = 0x07;
-        nDefaultPort = 18333;
+        nDefaultPort = DEFAULT_TESTNET_PORT;
         nMaxTipAge = 0x7fffffff;
         nPruneAfterHeight = 1000;
 
