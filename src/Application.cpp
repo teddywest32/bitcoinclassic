@@ -23,6 +23,9 @@
 #include "utilstrencodings.h"
 #include "clientversion.h"
 #include "net.h"
+#include "util.h"
+
+#include "AdminServer.h"
 
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
@@ -47,6 +50,7 @@ void Application::quit(int rc)
 {
     Application *app = Application::instance();
     app->m_returnCode = rc;
+    app->m_adminServer.reset();
     app->m_work.reset();
     app->m_ioservice->stop();
 }
@@ -66,11 +70,15 @@ Application::Application()
                 } catch (const boost::thread_interrupted&) {
                     return;
                 } catch (const std::exception& ex) {
-                    std::cout << "Threadgroup: uncaught exception: " << ex.what() << std::endl;
+                    LogPrintf("Threadgroup: uncaught exception: %s\n", ex.what());
                 }
             }
         });
     }
+}
+
+Application::~Application()
+{
 }
 
 boost::asio::io_service& Application::ioService()
@@ -78,13 +86,13 @@ boost::asio::io_service& Application::ioService()
     return *m_ioservice;
 }
 
-Admin::Server* Application::adminServer()
+Admin::Server *Application::adminServer()
 {
-    if (m_adminServer == nullptr) {
+    if (m_adminServer.get() == nullptr) {
         try {
             m_adminServer.reset(new Admin::Server(*m_ioservice));
         } catch (const std::exception &e) {
-            std::cout << "Failed to start adminServer " << e.what() << std::endl;
+            LogPrintf("Can't srart Admin::Server %s\n", e.what());
         }
     }
     return m_adminServer.get();

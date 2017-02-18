@@ -23,7 +23,9 @@
 
 #include <memory>
 
-#include "AdminServer.h"
+namespace Admin {
+    class Server;
+}
 
 /**
  * An application singleton that manages some application specific data.
@@ -36,6 +38,7 @@ class Application
 {
 public:
     Application();
+    ~Application();
 
     /// returns (and optionally creates) an instance
     static Application *instance();
