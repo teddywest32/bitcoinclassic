@@ -1163,7 +1163,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::P
 
     if (fTxIndex) {
         CDiskTxPos postx;
-        if (BlocksDB::instance().ReadTxIndex(hash, postx)) {
+        if (BlocksDB::instance()->ReadTxIndex(hash, postx)) {
             CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
             if (file.IsNull())
                 return error("%s: OpenBlockFile failed", __func__);
@@ -2170,7 +2170,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     if (fTxIndex)
-        if (!BlocksDB::instance().WriteTxIndex(vPos))
+        if (!BlocksDB::instance()->WriteTxIndex(vPos))
             return AbortNode(state, "Failed to write transaction index");
 
     // add this block to the view's block chain
@@ -2218,7 +2218,7 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
         if (!setFilesToPrune.empty()) {
             fFlushForPrune = true;
             if (!fHavePruned) {
-                BlocksDB::instance().WriteFlag("prunedblockfiles", true);
+                BlocksDB::instance()->WriteFlag("prunedblockfiles", true);
                 fHavePruned = true;
             }
         }
@@ -2266,7 +2266,7 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
                 vBlocks.push_back(*it);
                 setDirtyBlockIndex.erase(it++);
             }
-            if (!BlocksDB::instance().WriteBatchSync(vFiles, nLastBlockFile, vBlocks)) {
+            if (!BlocksDB::instance()->WriteBatchSync(vFiles, nLastBlockFile, vBlocks)) {
                 return AbortNode(state, "Files to write to block index database");
             }
         }
@@ -3422,7 +3422,7 @@ bool CheckDiskSpace(uint64_t nAdditionalBytes)
 bool static LoadBlockIndexDB()
 {
     const CChainParams& chainparams = Params();
-    if (!BlocksDB::instance().CacheAllBlockInfos())
+    if (!BlocksDB::instance()->CacheAllBlockInfos())
         return false;
 
     boost::this_thread::interruption_point();
@@ -3465,16 +3465,16 @@ bool static LoadBlockIndexDB()
     }
 
     // Load block file info
-    BlocksDB::instance().ReadLastBlockFile(nLastBlockFile);
+    BlocksDB::instance()->ReadLastBlockFile(nLastBlockFile);
     vinfoBlockFile.resize(nLastBlockFile + 1);
     LogPrintf("%s: last block file = %i\n", __func__, nLastBlockFile);
     for (int nFile = 0; nFile <= nLastBlockFile; nFile++) {
-        BlocksDB::instance().ReadBlockFileInfo(nFile, vinfoBlockFile[nFile]);
+        BlocksDB::instance()->ReadBlockFileInfo(nFile, vinfoBlockFile[nFile]);
     }
     LogPrintf("%s: last block file info: %s\n", __func__, vinfoBlockFile[nLastBlockFile].ToString());
     for (int nFile = nLastBlockFile + 1; true; nFile++) {
         CBlockFileInfo info;
-        if (BlocksDB::instance().ReadBlockFileInfo(nFile, info)) {
+        if (BlocksDB::instance()->ReadBlockFileInfo(nFile, info)) {
             vinfoBlockFile.push_back(info);
         } else {
             break;
@@ -3500,17 +3500,17 @@ bool static LoadBlockIndexDB()
     }
 
     // Check whether we have ever pruned block & undo files
-    BlocksDB::instance().ReadFlag("prunedblockfiles", fHavePruned);
+    BlocksDB::instance()->ReadFlag("prunedblockfiles", fHavePruned);
     if (fHavePruned)
         LogPrintf("LoadBlockIndexDB(): Block files have previously been pruned\n");
 
     // Check whether we need to continue reindexing
     bool fReindexing = false;
-    BlocksDB::instance().ReadReindexing(fReindexing);
+    BlocksDB::instance()->ReadReindexing(fReindexing);
     fReindex |= fReindexing;
 
     // Check whether we have a transaction index
-    BlocksDB::instance().ReadFlag("txindex", fTxIndex);
+    BlocksDB::instance()->ReadFlag("txindex", fTxIndex);
     LogPrintf("%s: transaction index %s\n", __func__, fTxIndex ? "enabled" : "disabled");
 
     // Load pointer to end of best chain
@@ -3671,7 +3671,7 @@ bool InitBlockIndex(const CChainParams& chainparams)
 
     // Use the provided setting for -txindex in the new database
     fTxIndex = GetBoolArg("-txindex", DEFAULT_TXINDEX);
-    BlocksDB::instance().WriteFlag("txindex", fTxIndex);
+    BlocksDB::instance()->WriteFlag("txindex", fTxIndex);
     LogPrintf("Initializing databases...\n");
 
     // Only add the genesis block if not reindexing (in which case we reuse the one already on disk)

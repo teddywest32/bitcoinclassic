@@ -33,9 +33,9 @@ class BlocksDB : public CDBWrapper
 public:
     /**
      * returns the singleton instance of the BlocksDB. Please be aware that
-     *     you need to call createInstance once in the app-init before it is allowed to call instance()
+     *     this will return nullptr until you call createInstance() or createTestInstance();
      */
-    static BlocksDB &instance();
+    static BlocksDB *instance();
     /**
      * Deletes an old and creates a new instance of the BlocksDB singleton.
      * @param[in] nCacheSize  Configures various leveldb cache settings.

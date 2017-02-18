@@ -225,7 +225,7 @@ void Shutdown()
         pcoinscatcher = NULL;
         delete pcoinsdbview;
         pcoinsdbview = NULL;
-        BlocksDB::instance().~BlocksDB();
+        delete BlocksDB::instance();
     }
 #ifdef ENABLE_WALLET
     if (pwalletMain)
@@ -619,7 +619,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
             LoadExternalBlockFile(chainparams, file, &pos);
             nFile++;
         }
-        BlocksDB::instance().WriteReindexing(false);
+        BlocksDB::instance()->WriteReindexing(false);
         fReindex = false;
         LogPrintf("Reindexing finished\n");
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
@@ -1292,7 +1292,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
 
                 if (fReindex) {
-                    BlocksDB::instance().WriteReindexing(true);
+                    BlocksDB::instance()->WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
                         CleanupBlockRevFiles();

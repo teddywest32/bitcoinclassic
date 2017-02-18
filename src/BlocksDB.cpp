@@ -43,10 +43,9 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
 
 BlocksDB* BlocksDB::s_instance = nullptr;
 
-BlocksDB &BlocksDB::instance()
+BlocksDB *BlocksDB::instance()
 {
-    assert(BlocksDB::s_instance);
-    return *BlocksDB::s_instance;
+    return BlocksDB::s_instance;
 }
 
 void BlocksDB::createInstance(size_t nCacheSize, bool fWipe)
