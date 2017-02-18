@@ -23,27 +23,6 @@
 
 using namespace std;
 
-static const char DEFAULT_RPCCONNECT[] = "127.0.0.1";
-static const int DEFAULT_HTTP_CLIENT_TIMEOUT=900;
-
-std::string HelpMessageCli()
-{
-    string strUsage;
-    strUsage += HelpMessageGroup(_("Options:"));
-    strUsage += HelpMessageOpt("-?", _("This help message"));
-    strUsage += HelpMessageOpt("-conf=<file>", strprintf(_("Specify configuration file (default: %s)"), BITCOIN_CONF_FILENAME));
-    strUsage += HelpMessageOpt("-datadir=<dir>", _("Specify data directory"));
-    AppendParamsHelpMessages(strUsage);
-    strUsage += HelpMessageOpt("-rpcconnect=<ip>", strprintf(_("Send commands to node running on <ip> (default: %s)"), DEFAULT_RPCCONNECT));
-    strUsage += HelpMessageOpt("-rpcport=<port>", strprintf(_("Connect to JSON-RPC on <port> (default: %u or testnet: %u)"), BaseParams(CBaseChainParams::MAIN).RPCPort(), BaseParams(CBaseChainParams::TESTNET).RPCPort()));
-    strUsage += HelpMessageOpt("-rpcwait", _("Wait for RPC server to start"));
-    strUsage += HelpMessageOpt("-rpcuser=<user>", _("Username for JSON-RPC connections"));
-    strUsage += HelpMessageOpt("-rpcpassword=<pw>", _("Password for JSON-RPC connections"));
-    strUsage += HelpMessageOpt("-rpcclienttimeout=<n>", strprintf(_("Timeout during HTTP requests (default: %d)"), DEFAULT_HTTP_CLIENT_TIMEOUT));
-
-    return strUsage;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // Start
@@ -68,8 +47,9 @@ static bool AppInitRPC(int argc, char* argv[])
     //
     // Parameters
     //
+    AllowedArgs::BitcoinCli allowedArgs;
     try {
-        ParseParameters(argc, argv, AllowedArgs::BitcoinCli);
+        ParseParameters(argc, argv, allowedArgs);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error parsing program options: %s\n", e.what());
         return false;
@@ -82,7 +62,7 @@ static bool AppInitRPC(int argc, char* argv[])
                   "  bitcoin-cli [options] help                " + _("List commands") + "\n" +
                   "  bitcoin-cli [options] help <command>      " + _("Get help for a command") + "\n";
 
-            strUsage += "\n" + HelpMessageCli();
+            strUsage += "\n" + allowedArgs.helpMessage();
         }
 
         fprintf(stdout, "%s", strUsage.c_str());

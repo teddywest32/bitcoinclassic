@@ -69,8 +69,9 @@ bool AppInit(int argc, char* argv[])
     // Parameters
     //
     // If Qt is used, parameters/bitcoin.conf are parsed in qt/bitcoin.cpp's main()
+    AllowedArgs::Bitcoind allowedArgs;
     try {
-        ParseParameters(argc, argv, AllowedArgs::Bitcoind);
+        ParseParameters(argc, argv, allowedArgs);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error parsing program options: %s\n", e.what());
         return false;
@@ -90,7 +91,7 @@ bool AppInit(int argc, char* argv[])
             strUsage += "\n" + _("Usage:") + "\n" +
                   "  bitcoind [options]                     " + _("Start Bitcoin Classic Daemon") + "\n";
 
-            strUsage += "\n" + HelpMessage(HMM_BITCOIND);
+            strUsage += "\n" + allowedArgs.helpMessage();
         }
 
         fprintf(stdout, "%s", strUsage.c_str());
