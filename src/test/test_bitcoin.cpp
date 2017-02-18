@@ -14,7 +14,7 @@
 #include "miner.h"
 #include "pubkey.h"
 #include "random.h"
-#include "txdb.h"
+#include <BlocksDB.h>
 #include "txmempool.h"
 #include "ui_interface.h"
 #include "util.h"
@@ -59,7 +59,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         pathTemp = GetTempPath() / strprintf("test_bitcoin_%lu_%i", (unsigned long)GetTime(), (int)(GetRand(100000)));
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
-        pblocktree = new CBlockTreeDB(1 << 20, true);
+        BlocksDB::createTestInstance(1<<20);
         pcoinsdbview = new CCoinsViewDB(1 << 23, true);
         pcoinsTip = new CCoinsViewCache(pcoinsdbview);
         InitBlockIndex(chainparams);
@@ -88,7 +88,6 @@ TestingSetup::~TestingSetup()
         UnloadBlockIndex();
         delete pcoinsTip;
         delete pcoinsdbview;
-        delete pblocktree;
 #ifdef ENABLE_WALLET
         bitdb.Flush(true);
         bitdb.Reset();

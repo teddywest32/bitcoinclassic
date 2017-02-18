@@ -8,6 +8,7 @@
 #include "chainparams.h"
 #include "main.h"
 #include "uint256.h"
+#include "BlocksDB.h"
 
 #include <stdint.h>
 

@@ -15,7 +15,7 @@
 #include "init.h"
 #include "main.h" // For DEFAULT_SCRIPTCHECK_THREADS
 #include "net.h"
-#include "txdb.h" // for -dbcache defaults
+#include <BlocksDB.h> // for -dbcache defaults
 
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"

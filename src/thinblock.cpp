@@ -10,6 +10,7 @@
 #include "main.h"
 #include "chainparams.h"
 #include "txmempool.h"
+#include "BlocksDB.h"
 #include "utilstrencodings.h"
 #include "txorphancache.h"
 #include "consensus/merkle.h"

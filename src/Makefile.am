@@ -160,6 +160,7 @@ BITCOIN_CORE_H = \
   tinyformat.h \
   torcontrol.h \
   txdb.h \
+  BlocksDB.h \
   txmempool.h \
   txorphancache.h \
   ui_interface.h \
@@ -227,6 +228,7 @@ libbitcoin_server_a_SOURCES = \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
+  BlocksDB.cpp \
   txmempool.cpp \
   validationinterface.cpp \
   versionbits.cpp \

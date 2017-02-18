@@ -22,6 +22,7 @@
 #include "script/sign.h"
 #include "timedata.h"
 #include "txmempool.h"
+#include "BlocksDB.h"
 #include "util.h"
 #include "utilmoneystr.h"
 
