@@ -14,7 +14,7 @@
 #include "script/sigcache.h"
 #include "tinyformat.h"
 #include "torcontrol.h"
-#include "txdb.h"
+#include "BlocksDB.h"
 #include "qt/guiconstants.h"
 #include "wallet/wallet.h"
 #include "util.h"
