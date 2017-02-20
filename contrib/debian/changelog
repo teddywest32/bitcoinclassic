@@ -1,3 +1,9 @@
+bitcoinclassic (1.2.1-trusty1) trusty; urgency=medium
+
+  * Bugfix release
+
+ -- Tom Z <tomz@freedommail.ch>  Tue, 20 Feb 2017 10:00:00 +0100
+
 bitcoinclassic (1.2.0-trusty1) trusty; urgency=medium
 
   * Change block-size strategy to use market size-equilibrium.
