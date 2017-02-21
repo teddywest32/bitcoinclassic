@@ -64,6 +64,14 @@ public:
      */
     static const char * clientName();
 
+    /**
+     * Wrapper function that allows users to create a thread on our global thread-group.
+     */
+    template<typename F>
+    static boost::thread* createThread(F threadfunc) {
+        return instance()->m_threads.create_thread(threadfunc);
+    }
+
 private:
     std::shared_ptr<boost::asio::io_service> m_ioservice;
     std::unique_ptr<boost::asio::io_service::work> m_work;

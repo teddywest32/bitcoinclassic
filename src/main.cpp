@@ -67,7 +67,6 @@ CWaitableCriticalSection csBestBlock;
 CConditionVariable cvBlockChange;
 int nScriptCheckThreads = 0;
 bool fImporting = false;
-bool fReindex = false;
 bool fTxIndex = false;
 bool fHavePruned = false;
 bool fPruneMode = false;
@@ -1292,7 +1291,7 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
-    if (fImporting || fReindex)
+    if (fImporting || BlocksDB::instance()->isReindexing())
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
         return true;
@@ -2212,7 +2211,7 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
     std::set<int> setFilesToPrune;
     bool fFlushForPrune = false;
     try {
-    if (fPruneMode && fCheckForPruning && !fReindex) {
+    if (fPruneMode && fCheckForPruning && !BlocksDB::instance()->isReindexing()) {
         FindFilesToPrune(setFilesToPrune, chainparams.PruneAfterHeight());
         fCheckForPruning = false;
         if (!setFilesToPrune.empty()) {
@@ -3420,7 +3419,7 @@ bool CheckDiskSpace(uint64_t nAdditionalBytes)
     return true;
 }
 
-bool static LoadBlockIndexDB()
+bool LoadBlockIndexDB()
 {
     const CChainParams& chainparams = Params();
     if (!BlocksDB::instance()->CacheAllBlockInfos())
@@ -3504,11 +3503,6 @@ bool static LoadBlockIndexDB()
     BlocksDB::instance()->ReadFlag("prunedblockfiles", fHavePruned);
     if (fHavePruned)
         LogPrintf("LoadBlockIndexDB(): Block files have previously been pruned\n");
-
-    // Check whether we need to continue reindexing
-    bool fReindexing = false;
-    BlocksDB::instance()->ReadReindexing(fReindexing);
-    fReindex |= fReindexing;
 
     // Check whether we have a transaction index
     BlocksDB::instance()->ReadFlag("txindex", fTxIndex);
@@ -3651,14 +3645,6 @@ void UnloadBlockIndex()
     fHavePruned = false;
 }
 
-bool LoadBlockIndex()
-{
-    // Load block index from databases
-    if (!fReindex && !LoadBlockIndexDB())
-        return false;
-    return true;
-}
-
 bool InitBlockIndex(const CChainParams& chainparams)
 {
     LOCK(cs_main);
@@ -3676,7 +3662,7 @@ bool InitBlockIndex(const CChainParams& chainparams)
     LogPrintf("Initializing databases...\n");
 
     // Only add the genesis block if not reindexing (in which case we reuse the one already on disk)
-    if (!fReindex) {
+    if (!BlocksDB::instance()->isReindexing()) {
         try {
             CBlock &block = const_cast<CBlock&>(chainparams.GenesisBlock());
             // Start new block file
@@ -4133,6 +4119,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 {
     const CChainParams& chainparams = Params();
     RandAddSeedPerfmon();
+    const bool fReindex = BlocksDB::instance()->isReindexing();
     LogPrint("net", "received: %s (%u bytes) peer=%d\n", SanitizeString(strCommand), vRecv.size(), pfrom->id);
     if (mapArgs.count("-dropmessagestest") && GetRand(atoi(mapArgs["-dropmessagestest"])) == 0)
     {
@@ -5390,6 +5377,7 @@ bool ProcessMessages(CNode* pfrom)
 
 bool SendMessages(CNode* pto)
 {
+    const bool fReindex = BlocksDB::instance()->isReindexing();
     const Consensus::Params& consensusParams = Params().GetConsensus();
     {
         // Don't send anything until we get its version message

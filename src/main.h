@@ -124,7 +124,6 @@ extern const std::string strMessageMagic;
 extern CWaitableCriticalSection csBestBlock;
 extern CConditionVariable cvBlockChange;
 extern bool fImporting;
-extern bool fReindex;
 extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
@@ -203,7 +202,7 @@ boost::filesystem::path GetBlockPosFilename(int fileIndex, const char *prefix);
 /** Initialize a new block tree database + block data on disk */
 bool InitBlockIndex(const CChainParams& chainparams);
 /** Load the block tree and coins database from disk */
-bool LoadBlockIndex();
+bool LoadBlockIndexDB();
 /** Unload database information */
 void UnloadBlockIndex();
 /** Process protocol messages received from a given node */

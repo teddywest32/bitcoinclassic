@@ -37,4 +37,7 @@ static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 /** Returns licensing information (for -version) */
 std::string LicenseInfo();
 
+void StartShutdown();
+bool ShutdownRequested();
+
 #endif // BITCOIN_INIT_H

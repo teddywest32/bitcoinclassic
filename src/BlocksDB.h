@@ -46,6 +46,8 @@ public:
     /// Deletes old singleton and creates a new one for unit testing.
     static void createTestInstance(size_t nCacheSize);
 
+    static void startBlockImporter();
+
 private:
     BlocksDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     BlocksDB(const BlocksDB&);
@@ -54,8 +56,6 @@ public:
     bool WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo);
     bool ReadBlockFileInfo(int nFile, CBlockFileInfo &fileinfo);
     bool ReadLastBlockFile(int &nFile);
-    bool WriteReindexing(bool fReindex);
-    bool ReadReindexing(bool &fReindex);
     bool ReadTxIndex(const uint256 &txid, CDiskTxPos &pos);
     bool WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos> > &list);
     bool WriteFlag(const std::string &name, bool fValue);
@@ -63,8 +63,15 @@ public:
     /// Reads and caches all info about blocks.
     bool CacheAllBlockInfos();
 
+    inline bool isReindexing() const {
+        return m_isReindexing;
+    }
+    bool setIsReindexing(bool fReindex);
+
+
 private:
     static BlocksDB *s_instance;
+    bool m_isReindexing;
 };
 
 struct BlockHashShortener {
@@ -83,8 +90,6 @@ FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Translation to a filesystem path */
 boost::filesystem::path GetBlockPosFilename(int fileIndex, const char *prefix);
-/** Import blocks from an external file */
-bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskBlockPos *dbp = 0);
 
 
 #endif // BITCOIN_TXDB_H

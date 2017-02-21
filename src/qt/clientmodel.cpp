@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 
+#include <BlocksDB.h>
 #include <QDebug>
 #include <QTimer>
 
@@ -134,7 +135,7 @@ bool ClientModel::inInitialBlockDownload() const
 
 enum BlockSource ClientModel::getBlockSource() const
 {
-    if (fReindex)
+    if (BlocksDB::instance()->isReindexing())
         return BLOCK_SOURCE_REINDEX;
     else if (fImporting)
         return BLOCK_SOURCE_DISK;
