@@ -6,25 +6,29 @@
 # add users
 adduser --system --group --quiet bitcoin
 
-chaindir="/var/lib/bitcoind"
-mkdir -p "$chaindir"
-if test ! -f /etc/bitcoin/bitcoin.conf; then
- cp /etc/bitcoin/bitcoin.conf.dist /etc/bitcoin/bitcoin.conf
+_chaindir="/var/lib/bitcoind"
+
+if test ! -d "$_chaindir"; then
+    mkdir -m 750 "$_chaindir"
+    if [[ $(findmnt --target $_chaindir --output FSTYPE --noheadings) == 'btrfs' ]]; then
+        # if is btrfs, disable copy on write for our new blockchain dir.
+        chattr +C "$_chaindir"
+    fi
 fi
-chown -R bitcoin:bitcoin /etc/bitcoin "$chaindir"
+chown -R bitcoin:bitcoin "$_chaindir"
+if test ! -f /etc/bitcoin/bitcoin.conf; then
+    cp /etc/bitcoin/bitcoin.conf.dist /etc/bitcoin/bitcoin.conf
+fi
+chown bitcoin:bitcoin /etc/bitcoin /etc/bitcoin/bitcoin.conf /etc/bitcoin/rpcuser.py
+chmod g+w /etc/bitcoin /etc/bitcoin/bitcoin.conf
 
 cat <<'EOF'
 ############################################################
-#                                                          #
 #  Bitcoin Classic                                         #
-#  ____________                                            #
 #                                                          #
 #  To start bitcoin-classic:                               #
-#                                                          #
 #      # systemctl start bitcoind                          #
-#                                                          #
 #  To communicate with bitcoin-classic as a normal user:   #
-#                                                          #
 #      $ bitcoin-cli help                                  #
 #                                                          #
 #  Config:        /etc/bitcoin/bitcoin.conf                #
