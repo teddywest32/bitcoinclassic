@@ -45,6 +45,7 @@ public:
         DatabaseCache,          // int
         SpendZeroConfChange,    // bool
         Listen,                 // bool
+        BlockSizeAcceptLimit,   // double
         OptionIDRowCount,
     };
 
