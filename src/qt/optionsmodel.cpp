@@ -15,6 +15,7 @@
 #include "init.h"
 #include "main.h" // For DEFAULT_SCRIPTCHECK_THREADS
 #include "net.h"
+#include "policy/policy.h" // for DEFAULT_BLOCK_ACCEPT_SIZE
 #include <BlocksDB.h> // for -dbcache defaults
 
 #ifdef ENABLE_WALLET
@@ -90,6 +91,15 @@ void OptionsModel::Init(bool resetSettings)
         settings.setValue("nThreadsScriptVerif", DEFAULT_SCRIPTCHECK_THREADS);
     if (!SoftSetArg("-par", settings.value("nThreadsScriptVerif").toString().toStdString()))
         addOverriddenOption("-par");
+
+    if (!settings.contains("blockSizeAcceptLimitBytes"))
+        settings.setValue("blockSizeAcceptLimitBytes", static_cast<int32_t>(round(DEFAULT_BLOCK_ACCEPT_SIZE * 1e6)));
+    if (mapArgs.count("-blocksizeacceptlimit"))
+        addOverriddenOption("-blocksizeacceptlimit");
+    else if (mapArgs.count("-excessiveblocksize"))
+        addOverriddenOption("-excessiveblocksize");
+    else
+        SoftSetArg("-excessiveblocksize", settings.value("blockSizeAcceptLimitBytes").toString().toStdString());
 
     // Wallet
 #ifdef ENABLE_WALLET
@@ -223,6 +233,8 @@ QVariant OptionsModel::data(const QModelIndex & index, int role) const
             return settings.value("nThreadsScriptVerif");
         case Listen:
             return settings.value("fListen");
+        case BlockSizeAcceptLimit:
+            return settings.value("blockSizeAcceptLimitBytes").toInt() / 1e6;
         default:
             return QVariant();
         }
@@ -364,6 +376,14 @@ bool OptionsModel::setData(const QModelIndex & index, const QVariant & value, in
             if (settings.value("fListen") != value) {
                 settings.setValue("fListen", value);
                 setRestartRequired(true);
+            }
+            break;
+        case BlockSizeAcceptLimit: {
+                int32_t valueBytes = round(value.toDouble() * 1e6);
+                if (settings.value("blockSizeAcceptLimitBytes") != valueBytes) {
+                    settings.setValue("blockSizeAcceptLimitBytes", valueBytes);
+                    setRestartRequired(true);
+                }
             }
             break;
         default:
