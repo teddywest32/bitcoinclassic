@@ -210,6 +210,9 @@ void Shutdown()
         fFeeEstimatesInitialized = false;
     }
 
+    Application::quit(0);
+    Application::exec(); // waits for threads to finish.
+
     {
         LOCK(cs_main);
         if (pcoinsTip != NULL) {
