@@ -75,6 +75,8 @@ public:
         return instance()->m_threads.create_thread(threadfunc);
     }
 
+    static bool closingDown();
+
 private:
     std::shared_ptr<boost::asio::io_service> m_ioservice;
     std::unique_ptr<boost::asio::io_service::work> m_work;
@@ -83,6 +85,7 @@ private:
     std::unique_ptr<Admin::Server> m_adminServer;
 
     int m_returnCode;
+    bool m_closingDown;
 };
 
 #endif

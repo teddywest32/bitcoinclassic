@@ -53,12 +53,14 @@ void Application::quit(int rc)
     app->m_adminServer.reset();
     app->m_work.reset();
     app->m_ioservice->stop();
+    app->m_closingDown = true;
 }
 
 Application::Application()
     : m_ioservice(new boost::asio::io_service()),
     m_work(new boost::asio::io_service::work(*m_ioservice)),
-    m_returnCode(0)
+    m_returnCode(0),
+    m_closingDown(false)
 {
     for (int i = boost::thread::hardware_concurrency(); i > 0; --i) {
         auto ioservice(m_ioservice);
@@ -143,4 +145,9 @@ std::string Application::userAgent()
 const char *Application::clientName()
 {
     return "Classic";
+}
+
+bool Application::closingDown()
+{
+    return instance()->m_closingDown;
 }
