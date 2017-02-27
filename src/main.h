@@ -197,8 +197,6 @@ void UnregisterNodeSignals(CNodeSignals& nodeSignals);
 bool ProcessNewBlock(CValidationState& state, const CChainParams& chainparams, const CNode* pfrom, const CBlock* pblock, bool fForceProcessing, CDiskBlockPos* dbp);
 /** Check whether enough disk space is available for an incoming block */
 bool CheckDiskSpace(uint64_t nAdditionalBytes = 0);
-/** Translation to a filesystem path */
-boost::filesystem::path GetBlockPosFilename(int fileIndex, const char *prefix);
 /** Initialize a new block tree database + block data on disk */
 bool InitBlockIndex(const CChainParams& chainparams);
 /** Load the block tree and coins database from disk */

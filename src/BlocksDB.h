@@ -27,15 +27,17 @@ static const int64_t nMaxDbCache = sizeof(void*) > 4 ? 16384 : 1024;
 //! min. -dbcache in (MiB)
 static const int64_t nMinDbCache = 4;
 
+namespace Blocks {
+
 /** Access to the block database (blocks/index/) */
-class BlocksDB : public CDBWrapper
+class DB : public CDBWrapper
 {
 public:
     /**
      * returns the singleton instance of the BlocksDB. Please be aware that
      *     this will return nullptr until you call createInstance() or createTestInstance();
      */
-    static BlocksDB *instance();
+    static DB *instance();
     /**
      * Deletes an old and creates a new instance of the BlocksDB singleton.
      * @param[in] nCacheSize  Configures various leveldb cache settings.
@@ -49,9 +51,9 @@ public:
     static void startBlockImporter();
 
 private:
-    BlocksDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
-    BlocksDB(const BlocksDB&);
-    void operator=(const BlocksDB&);
+    DB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    DB(const Blocks::DB&);
+    void operator=(const DB&);
 public:
     bool WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo);
     bool ReadBlockFileInfo(int nFile, CBlockFileInfo &fileinfo);
@@ -70,7 +72,7 @@ public:
 
 
 private:
-    static BlocksDB *s_instance;
+    static DB *s_instance;
     bool m_isReindexing;
 };
 
@@ -79,17 +81,20 @@ struct BlockHashShortener {
         return hash.GetCheapHash();
     }
 };
-typedef boost::unordered_map<uint256, CBlockIndex*, BlockHashShortener> BlockMap;
-// TODO move this into BlocksDB and protect it with a mutex
-extern BlockMap mapBlockIndex;
-
 
 /** Open a block file (blk?????.dat) */
-FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+FILE* openFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Open an undo file (rev?????.dat) */
-FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+FILE* openUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Translation to a filesystem path */
-boost::filesystem::path GetBlockPosFilename(int fileIndex, const char *prefix);
+boost::filesystem::path getFilepathForIndex(int fileIndex, const char *prefix);
+
+// Protected by cs_main
+typedef boost::unordered_map<uint256, CBlockIndex*, BlockHashShortener> BlockMap;
+// TODO move this into BlocksDB and protect it with a mutex
+extern BlockMap indexMap;
+}
+
 
 
 #endif // BITCOIN_TXDB_H

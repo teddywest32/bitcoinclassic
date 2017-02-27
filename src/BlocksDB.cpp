@@ -30,13 +30,13 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
         return NULL;
 
     // Return existing
-    BlockMap::iterator mi = mapBlockIndex.find(hash);
-    if (mi != mapBlockIndex.end())
+    auto mi = Blocks::indexMap.find(hash);
+    if (mi != Blocks::indexMap.end())
         return (*mi).second;
 
     // Create new
     CBlockIndex* pindexNew = new CBlockIndex();
-    mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
+    mi = Blocks::indexMap.insert(std::make_pair(hash, pindexNew)).first;
     pindexNew->phashBlock = &((*mi).first);
 
     return pindexNew;
@@ -89,7 +89,7 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
 
                 // detect out of order blocks, and store them for later
                 uint256 hash = block.GetHash();
-                if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex.find(block.hashPrevBlock) == mapBlockIndex.end()) {
+                if (hash != chainparams.GetConsensus().hashGenesisBlock && Blocks::indexMap.find(block.hashPrevBlock) == Blocks::indexMap.end()) {
                     LogPrint("reindex", "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                             block.hashPrevBlock.ToString());
                     if (dbp)
@@ -98,14 +98,14 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                 }
 
                 // process in case the block isn't known yet
-                if (mapBlockIndex.count(hash) == 0 || (mapBlockIndex[hash]->nStatus & BLOCK_HAVE_DATA) == 0) {
+                if (Blocks::indexMap.count(hash) == 0 || (Blocks::indexMap[hash]->nStatus & BLOCK_HAVE_DATA) == 0) {
                     CValidationState state;
                     if (ProcessNewBlock(state, chainparams, NULL, &block, true, dbp))
                         nLoaded++;
                     if (state.IsError())
                         break;
-                } else if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex[hash]->nHeight % 1000 == 0) {
-                    LogPrintf("Block Import: already had block %s at height %d\n", hash.ToString(), mapBlockIndex[hash]->nHeight);
+                } else if (hash != chainparams.GetConsensus().hashGenesisBlock && Blocks::indexMap[hash]->nHeight % 1000 == 0) {
+                    LogPrintf("Block Import: already had block %s at height %d\n", hash.ToString(), Blocks::indexMap[hash]->nHeight);
                 }
 
                 // Recursively process earlier encountered successors of this block
@@ -162,23 +162,23 @@ void reimportBlockFiles(std::vector<boost::filesystem::path> vImportFiles)
 {
     const CChainParams& chainparams = Params();
     RenameThread("bitcoin-loadblk");
-    bool fReindex = BlocksDB::instance()->isReindexing();
+    bool fReindex = Blocks::DB::instance()->isReindexing();
 
     if (fReindex) {
         CImportingNow imp;
         int nFile = 0;
         while (true) {
             CDiskBlockPos pos(nFile, 0);
-            if (!boost::filesystem::exists(GetBlockPosFilename(pos.nFile, "blk")))
+            if (!boost::filesystem::exists(Blocks::getFilepathForIndex(pos.nFile, "blk")))
                 break; // No block files left to reindex
-            FILE *file = OpenBlockFile(pos, true);
+            FILE *file = Blocks::openFile(pos, true);
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
             LoadExternalBlockFile(chainparams, file, &pos);
             nFile++;
         }
-        BlocksDB::instance()->setIsReindexing(false);
+        Blocks::DB::instance()->setIsReindexing(false);
         fReindex = false;
         LogPrintf("Reindexing finished\n");
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
@@ -220,26 +220,31 @@ void reimportBlockFiles(std::vector<boost::filesystem::path> vImportFiles)
 
 }
 
-BlocksDB* BlocksDB::s_instance = nullptr;
-
-BlocksDB *BlocksDB::instance()
-{
-    return BlocksDB::s_instance;
+namespace Blocks {
+BlockMap indexMap;
 }
 
-void BlocksDB::createInstance(size_t nCacheSize, bool fWipe)
+
+Blocks::DB* Blocks::DB::s_instance = nullptr;
+
+Blocks::DB *Blocks::DB::instance()
 {
-    delete BlocksDB::s_instance;
-    BlocksDB::s_instance = new BlocksDB(nCacheSize, false, fWipe);
+    return Blocks::DB::s_instance;
 }
 
-void BlocksDB::createTestInstance(size_t nCacheSize)
+void Blocks::DB::createInstance(size_t nCacheSize, bool fWipe)
 {
-    delete BlocksDB::s_instance;
-    BlocksDB::s_instance = new BlocksDB(nCacheSize, true);
+    delete Blocks::DB::s_instance;
+    Blocks::DB::s_instance = new Blocks::DB(nCacheSize, false, fWipe);
 }
 
-void BlocksDB::startBlockImporter()
+void Blocks::DB::createTestInstance(size_t nCacheSize)
+{
+    delete Blocks::DB::s_instance;
+    Blocks::DB::s_instance = new Blocks::DB(nCacheSize, true);
+}
+
+void Blocks::DB::startBlockImporter()
 {
     std::vector<boost::filesystem::path> vImportFiles;
     if (mapArgs.count("-loadblock"))
@@ -252,17 +257,17 @@ void BlocksDB::startBlockImporter()
 
 
 
-BlocksDB::BlocksDB(size_t nCacheSize, bool fMemory, bool fWipe)
+Blocks::DB::DB(size_t nCacheSize, bool fMemory, bool fWipe)
     : CDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe)
 {
     m_isReindexing = Exists(DB_REINDEX_FLAG);
 }
 
-bool BlocksDB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) {
+bool Blocks::DB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) {
     return Read(std::make_pair(DB_BLOCK_FILES, nFile), info);
 }
 
-bool BlocksDB::setIsReindexing(bool fReindexing) {
+bool Blocks::DB::setIsReindexing(bool fReindexing) {
     if (m_isReindexing == fReindexing)
         return true;
     m_isReindexing = fReindexing;
@@ -272,11 +277,11 @@ bool BlocksDB::setIsReindexing(bool fReindexing) {
         return Erase(DB_REINDEX_FLAG);
 }
 
-bool BlocksDB::ReadLastBlockFile(int &nFile) {
+bool Blocks::DB::ReadLastBlockFile(int &nFile) {
     return Read(DB_LAST_BLOCK, nFile);
 }
 
-bool BlocksDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo) {
+bool Blocks::DB::WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo) {
     CDBBatch batch(&GetObfuscateKey());
     for (std::vector<std::pair<int, const CBlockFileInfo*> >::const_iterator it=fileInfo.begin(); it != fileInfo.end(); it++) {
         batch.Write(std::make_pair(DB_BLOCK_FILES, it->first), *it->second);
@@ -288,22 +293,22 @@ bool BlocksDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockFileI
     return WriteBatch(batch, true);
 }
 
-bool BlocksDB::ReadTxIndex(const uint256 &txid, CDiskTxPos &pos) {
+bool Blocks::DB::ReadTxIndex(const uint256 &txid, CDiskTxPos &pos) {
     return Read(std::make_pair(DB_TXINDEX, txid), pos);
 }
 
-bool BlocksDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos> >&vect) {
+bool Blocks::DB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos> >&vect) {
     CDBBatch batch(&GetObfuscateKey());
     for (std::vector<std::pair<uint256,CDiskTxPos> >::const_iterator it=vect.begin(); it!=vect.end(); it++)
         batch.Write(std::make_pair(DB_TXINDEX, it->first), it->second);
     return WriteBatch(batch);
 }
 
-bool BlocksDB::WriteFlag(const std::string &name, bool fValue) {
+bool Blocks::DB::WriteFlag(const std::string &name, bool fValue) {
     return Write(std::make_pair(DB_FLAG, name), fValue ? '1' : '0');
 }
 
-bool BlocksDB::ReadFlag(const std::string &name, bool &fValue) {
+bool Blocks::DB::ReadFlag(const std::string &name, bool &fValue) {
     char ch;
     if (!Read(std::make_pair(DB_FLAG, name), ch))
         return false;
@@ -311,7 +316,7 @@ bool BlocksDB::ReadFlag(const std::string &name, bool &fValue) {
     return true;
 }
 
-bool BlocksDB::CacheAllBlockInfos()
+bool Blocks::DB::CacheAllBlockInfos()
 {
     boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
 
@@ -350,11 +355,11 @@ bool BlocksDB::CacheAllBlockInfos()
     return true;
 }
 
-FILE* OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly)
+static FILE* OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly)
 {
     if (pos.IsNull())
         return NULL;
-    boost::filesystem::path path = GetBlockPosFilename(pos.nFile, prefix);
+    boost::filesystem::path path = Blocks::getFilepathForIndex(pos.nFile, prefix);
     boost::filesystem::create_directories(path.parent_path());
     FILE* file = fopen(path.string().c_str(), "rb+");
     if (!file && !fReadOnly)
@@ -373,15 +378,15 @@ FILE* OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly)
     return file;
 }
 
-FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly) {
+FILE* Blocks::openFile(const CDiskBlockPos &pos, bool fReadOnly) {
     return OpenDiskFile(pos, "blk", fReadOnly);
 }
 
-FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly) {
+FILE* Blocks::openUndoFile(const CDiskBlockPos &pos, bool fReadOnly) {
     return OpenDiskFile(pos, "rev", fReadOnly);
 }
 
-boost::filesystem::path GetBlockPosFilename(int fileIndex, const char *prefix)
+boost::filesystem::path Blocks::getFilepathForIndex(int fileIndex, const char *prefix)
 {
     return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, fileIndex);
 }

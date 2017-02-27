@@ -411,8 +411,8 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
             uint256 hash = block.GetHash();
-            BlockMap::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end()) {
+            auto mi = Blocks::indexMap.find(hash);
+            if (mi != Blocks::indexMap.end()) {
                 CBlockIndex *pindex = mi->second;
                 if (pindex->IsValid(BLOCK_VALID_SCRIPTS))
                     return "duplicate";
@@ -638,8 +638,8 @@ UniValue submitblock(const UniValue& params, bool fHelp)
     bool fBlockPresent = false;
     {
         LOCK(cs_main);
-        BlockMap::iterator mi = mapBlockIndex.find(hash);
-        if (mi != mapBlockIndex.end()) {
+        auto mi = Blocks::indexMap.find(hash);
+        if (mi != Blocks::indexMap.end()) {
             CBlockIndex *pindex = mi->second;
             if (pindex->IsValid(BLOCK_VALID_SCRIPTS))
                 return "duplicate";

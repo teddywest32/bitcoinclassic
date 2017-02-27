@@ -501,10 +501,10 @@ void HandleExpeditedBlock(CDataStream& vRecv, CNode* pfrom)
         CXThinBlock thinBlock;
         vRecv >> thinBlock;
 
-        BlockMap::iterator mapEntry = mapBlockIndex.find(thinBlock.header.GetHash());
+        auto mapEntry = Blocks::indexMap.find(thinBlock.header.GetHash());
         CBlockIndex *blockIndex = nullptr;
         unsigned int status = 0;
-        if (mapEntry != mapBlockIndex.end()) {
+        if (mapEntry != Blocks::indexMap.end()) {
             blockIndex = mapEntry->second;
             status = blockIndex->nStatus;
         }

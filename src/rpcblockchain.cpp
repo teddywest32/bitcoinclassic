@@ -345,10 +345,10 @@ UniValue getblockheader(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fVerbose = params[1].get_bool();
 
-    if (mapBlockIndex.count(hash) == 0)
+    if (Blocks::indexMap.count(hash) == 0)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
-    CBlockIndex* pblockindex = mapBlockIndex[hash];
+    CBlockIndex* pblockindex = Blocks::indexMap[hash];
 
     if (!fVerbose)
     {
@@ -408,11 +408,11 @@ UniValue getblock(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fVerbose = params[1].get_bool();
 
-    if (mapBlockIndex.count(hash) == 0)
+    if (Blocks::indexMap.count(hash) == 0)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
     CBlock block;
-    CBlockIndex* pblockindex = mapBlockIndex[hash];
+    CBlockIndex* pblockindex = Blocks::indexMap[hash];
 
     if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
@@ -532,7 +532,7 @@ UniValue gettxout(const UniValue& params, bool fHelp)
     if (n<0 || (unsigned int)n>=coins.vout.size() || coins.vout[n].IsNull())
         return NullUniValue;
 
-    BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
+    auto it = Blocks::indexMap.find(pcoinsTip->GetBestBlock());
     CBlockIndex *pindex = it->second;
     ret.push_back(Pair("bestblock", pindex->GetBlockHash().GetHex()));
     if ((unsigned int)coins.nHeight == MEMPOOL_HEIGHT)
@@ -753,9 +753,9 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
        known blocks, and successively remove blocks that appear as pprev
        of another block.  */
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, Blocks::indexMap)
         setTips.insert(item.second);
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, Blocks::indexMap)
     {
         const CBlockIndex* pprev = item.second->pprev;
         if (pprev)
@@ -859,10 +859,10 @@ UniValue invalidateblock(const UniValue& params, bool fHelp)
 
     {
         LOCK(cs_main);
-        if (mapBlockIndex.count(hash) == 0)
+        if (Blocks::indexMap.count(hash) == 0)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
-        CBlockIndex* pblockindex = mapBlockIndex[hash];
+        CBlockIndex* pblockindex = Blocks::indexMap[hash];
         InvalidateBlock(state, Params().GetConsensus(), pblockindex);
     }
 
@@ -898,10 +898,10 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
 
     {
         LOCK(cs_main);
-        if (mapBlockIndex.count(hash) == 0)
+        if (Blocks::indexMap.count(hash) == 0)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
-        CBlockIndex* pblockindex = mapBlockIndex[hash];
+        CBlockIndex* pblockindex = Blocks::indexMap[hash];
         ReconsiderBlock(state, pblockindex);
     }
 

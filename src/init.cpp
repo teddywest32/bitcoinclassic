@@ -224,7 +224,7 @@ void Shutdown()
         pcoinscatcher = NULL;
         delete pcoinsdbview;
         pcoinsdbview = NULL;
-        delete BlocksDB::instance();
+        delete Blocks::DB::instance();
     }
 #ifdef ENABLE_WALLET
     if (pwalletMain)
@@ -1000,13 +1000,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinsdbview;
                 delete pcoinscatcher;
 
-                BlocksDB::createInstance(nBlockTreeDBCache, fReindex);
+                Blocks::DB::createInstance(nBlockTreeDBCache, fReindex);
                 pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
 
                 if (fReindex) {
-                    BlocksDB::instance()->setIsReindexing(true);
+                    Blocks::DB::instance()->setIsReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
                         CleanupBlockRevFiles();
@@ -1017,11 +1017,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     break;
                 }
                 // Check whether we need to continue reindexing
-                fReindex = fReindex || BlocksDB::instance()->isReindexing();
+                fReindex = fReindex || Blocks::DB::instance()->isReindexing();
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!mapBlockIndex.empty() && mapBlockIndex.count(chainparams.GetConsensus().hashGenesisBlock) == 0)
+                if (!Blocks::indexMap.empty() && Blocks::indexMap.count(chainparams.GetConsensus().hashGenesisBlock) == 0)
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
 
                 // Initialize the block index (no-op if non-empty database was already loaded)
@@ -1287,8 +1287,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!ActivateBestChain(state, chainparams))
         strErrors << "Failed to connect best block";
 
-    BlocksDB::instance()->setIsReindexing(fReindex);
-    BlocksDB::startBlockImporter();
+    Blocks::DB::instance()->setIsReindexing(fReindex);
+    Blocks::DB::startBlockImporter();
     if (chainActive.Tip() == NULL) {
         LogPrintf("Waiting for genesis block to be imported...\n");
         while (!fRequestShutdown && chainActive.Tip() == NULL)
@@ -1306,7 +1306,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     RandAddSeedPerfmon();
 
     //// debug print
-    LogPrintf("mapBlockIndex.size() = %u\n",   mapBlockIndex.size());
+    LogPrintf("mapBlockIndex.size() = %u\n",   Blocks::indexMap.size());
     LogPrintf("nBestHeight = %d\n",                   chainActive.Height());
 #ifdef ENABLE_WALLET
     LogPrintf("setKeyPool.size() = %u\n",      pwalletMain ? pwalletMain->setKeyPool.size() : 0);

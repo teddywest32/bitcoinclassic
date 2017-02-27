@@ -643,7 +643,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
             wtx.nTimeSmart = wtx.nTimeReceived;
             if (!wtxIn.hashUnset())
             {
-                if (mapBlockIndex.count(wtxIn.hashBlock))
+                if (Blocks::indexMap.count(wtxIn.hashBlock))
                 {
                     int64_t latestNow = wtx.nTimeReceived;
                     int64_t latestEntry = 0;
@@ -676,7 +676,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
                         }
                     }
 
-                    int64_t blocktime = mapBlockIndex[wtxIn.hashBlock]->GetBlockTime();
+                    int64_t blocktime = Blocks::indexMap[wtxIn.hashBlock]->GetBlockTime();
                     wtx.nTimeSmart = std::max(latestEntry, std::min(blocktime, latestNow));
                 }
                 else
@@ -847,8 +847,8 @@ void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
     LOCK2(cs_main, cs_wallet);
 
     int conflictconfirms = 0;
-    if (mapBlockIndex.count(hashBlock)) {
-        CBlockIndex* pindex = mapBlockIndex[hashBlock];
+    if (Blocks::indexMap.count(hashBlock)) {
+        CBlockIndex* pindex = Blocks::indexMap[hashBlock];
         if (chainActive.Contains(pindex)) {
             conflictconfirms = -(chainActive.Height() - pindex->nHeight + 1);
         }
@@ -2861,8 +2861,8 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const {
     for (std::map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); it++) {
         // iterate over all wallet transactions...
         const CWalletTx &wtx = (*it).second;
-        BlockMap::const_iterator blit = mapBlockIndex.find(wtx.hashBlock);
-        if (blit != mapBlockIndex.end() && chainActive.Contains(blit->second)) {
+        auto blit = Blocks::indexMap.find(wtx.hashBlock);
+        if (blit != Blocks::indexMap.end() && chainActive.Contains(blit->second)) {
             // ... which are already in a block
             int nHeight = blit->second->nHeight;
             BOOST_FOREACH(const CTxOut &txout, wtx.vout) {
@@ -2963,8 +2963,8 @@ int CMerkleTx::SetMerkleBranch(const CBlock& block)
     }
 
     // Is the tx in a block that's in the main chain
-    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-    if (mi == mapBlockIndex.end())
+    auto mi = Blocks::indexMap.find(hashBlock);
+    if (mi == Blocks::indexMap.end())
         return 0;
     const CBlockIndex* pindex = (*mi).second;
     if (!pindex || !chainActive.Contains(pindex))
@@ -2981,8 +2981,8 @@ int CMerkleTx::GetDepthInMainChain(const CBlockIndex* &pindexRet) const
     AssertLockHeld(cs_main);
 
     // Find the block it claims to be in
-    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-    if (mi == mapBlockIndex.end())
+    auto mi = Blocks::indexMap.find(hashBlock);
+    if (mi == Blocks::indexMap.end())
         return 0;
     CBlockIndex* pindex = (*mi).second;
     if (!pindex || !chainActive.Contains(pindex))

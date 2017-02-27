@@ -59,7 +59,6 @@ using namespace std;
 
 CCriticalSection cs_main;
 
-BlockMap mapBlockIndex;
 CChain chainActive;
 CBlockIndex *pindexBestHeader = NULL;
 int64_t nTimeBestReceived = 0;
@@ -386,8 +385,8 @@ void ProcessBlockAvailability(NodeId nodeid) {
     assert(state != NULL);
 
     if (!state->hashLastUnknownBlock.IsNull()) {
-        BlockMap::iterator itOld = mapBlockIndex.find(state->hashLastUnknownBlock);
-        if (itOld != mapBlockIndex.end() && itOld->second->nChainWork > 0) {
+        auto itOld = Blocks::indexMap.find(state->hashLastUnknownBlock);
+        if (itOld != Blocks::indexMap.end() && itOld->second->nChainWork > 0) {
             if (state->pindexBestKnownBlock == NULL || itOld->second->nChainWork >= state->pindexBestKnownBlock->nChainWork)
                 state->pindexBestKnownBlock = itOld->second;
             state->hashLastUnknownBlock.SetNull();
@@ -402,8 +401,8 @@ void UpdateBlockAvailability(NodeId nodeid, const uint256 &hash) {
 
     ProcessBlockAvailability(nodeid);
 
-    BlockMap::iterator it = mapBlockIndex.find(hash);
-    if (it != mapBlockIndex.end() && it->second->nChainWork > 0) {
+    auto it = Blocks::indexMap.find(hash);
+    if (it != Blocks::indexMap.end() && it->second->nChainWork > 0) {
         // An actually better block was announced.
         if (state->pindexBestKnownBlock == NULL || it->second->nChainWork >= state->pindexBestKnownBlock->nChainWork)
             state->pindexBestKnownBlock = it->second;
@@ -571,8 +570,8 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
 {
     // Find the first block the caller has in the main chain
     BOOST_FOREACH(const uint256& hash, locator.vHave) {
-        BlockMap::iterator mi = mapBlockIndex.find(hash);
-        if (mi != mapBlockIndex.end())
+        auto mi = Blocks::indexMap.find(hash);
+        if (mi != Blocks::indexMap.end())
         {
             CBlockIndex* pindex = (*mi).second;
             if (chain.Contains(pindex))
@@ -1163,8 +1162,8 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::P
 
     if (fTxIndex) {
         CDiskTxPos postx;
-        if (BlocksDB::instance()->ReadTxIndex(hash, postx)) {
-            CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
+        if (Blocks::DB::instance()->ReadTxIndex(hash, postx)) {
+            CAutoFile file(Blocks::openFile(postx, true), SER_DISK, CLIENT_VERSION);
             if (file.IsNull())
                 return error("%s: OpenBlockFile failed", __func__);
             CBlockHeader header;
@@ -1223,7 +1222,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::P
 bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(OpenBlockFile(pos), SER_DISK, CLIENT_VERSION);
+    CAutoFile fileout(Blocks::openFile(pos), SER_DISK, CLIENT_VERSION);
     if (fileout.IsNull())
         return error("WriteBlockToDisk: OpenBlockFile failed");
 
@@ -1246,7 +1245,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
     block.SetNull();
 
     // Open history file to read
-    CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
+    CAutoFile filein(Blocks::openFile(pos, true), SER_DISK, CLIENT_VERSION);
     if (filein.IsNull())
         return error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString());
 
@@ -1292,7 +1291,7 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
-    if (fImporting || BlocksDB::instance()->isReindexing())
+    if (fImporting || Blocks::DB::instance()->isReindexing())
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
         return true;
@@ -1515,7 +1514,7 @@ bool CScriptCheck::operator()() {
 int GetSpendHeight(const CCoinsViewCache& inputs)
 {
     LOCK(cs_main);
-    CBlockIndex* pindexPrev = mapBlockIndex.find(inputs.GetBestBlock())->second;
+    CBlockIndex* pindexPrev = Blocks::indexMap.find(inputs.GetBestBlock())->second;
     return pindexPrev->nHeight + 1;
 }
 
@@ -1627,7 +1626,7 @@ namespace {
 bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(OpenUndoFile(pos), SER_DISK, CLIENT_VERSION);
+    CAutoFile fileout(Blocks::openUndoFile(pos), SER_DISK, CLIENT_VERSION);
     if (fileout.IsNull())
         return error("%s: OpenUndoFile failed", __func__);
 
@@ -1654,7 +1653,7 @@ bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint
 bool UndoReadFromDisk(CBlockUndo& blockundo, const CDiskBlockPos& pos, const uint256& hashBlock)
 {
     // Open history file to read
-    CAutoFile filein(OpenUndoFile(pos, true), SER_DISK, CLIENT_VERSION);
+    CAutoFile filein(Blocks::openUndoFile(pos, true), SER_DISK, CLIENT_VERSION);
     if (filein.IsNull())
         return error("%s: OpenBlockFile failed", __func__);
 
@@ -1805,7 +1804,7 @@ void static FlushBlockFile(bool fFinalize = false)
 
     CDiskBlockPos posOld(nLastBlockFile, 0);
 
-    FILE *fileOld = OpenBlockFile(posOld);
+    FILE *fileOld = Blocks::openFile(posOld);
     if (fileOld) {
         if (fFinalize)
             TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nSize);
@@ -1813,7 +1812,7 @@ void static FlushBlockFile(bool fFinalize = false)
         fclose(fileOld);
     }
 
-    fileOld = OpenUndoFile(posOld);
+    fileOld = Blocks::openUndoFile(posOld);
     if (fileOld) {
         if (fFinalize)
             TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nUndoSize);
@@ -2171,7 +2170,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     if (fTxIndex)
-        if (!BlocksDB::instance()->WriteTxIndex(vPos))
+        if (!Blocks::DB::instance()->WriteTxIndex(vPos))
             return AbortNode(state, "Failed to write transaction index");
 
     // add this block to the view's block chain
@@ -2213,13 +2212,13 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
     std::set<int> setFilesToPrune;
     bool fFlushForPrune = false;
     try {
-    if (fPruneMode && fCheckForPruning && !BlocksDB::instance()->isReindexing()) {
+    if (fPruneMode && fCheckForPruning && !Blocks::DB::instance()->isReindexing()) {
         FindFilesToPrune(setFilesToPrune, chainparams.PruneAfterHeight());
         fCheckForPruning = false;
         if (!setFilesToPrune.empty()) {
             fFlushForPrune = true;
             if (!fHavePruned) {
-                BlocksDB::instance()->WriteFlag("prunedblockfiles", true);
+                Blocks::DB::instance()->WriteFlag("prunedblockfiles", true);
                 fHavePruned = true;
             }
         }
@@ -2267,7 +2266,7 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
                 vBlocks.push_back(*it);
                 setDirtyBlockIndex.erase(it++);
             }
-            if (!BlocksDB::instance()->WriteBatchSync(vFiles, nLastBlockFile, vBlocks)) {
+            if (!Blocks::DB::instance()->WriteBatchSync(vFiles, nLastBlockFile, vBlocks)) {
                 return AbortNode(state, "Files to write to block index database");
             }
         }
@@ -2744,8 +2743,8 @@ bool InvalidateBlock(CValidationState& state, const Consensus::Params& consensus
 
     // The resulting new best tip may not be in setBlockIndexCandidates anymore, so
     // add it again.
-    BlockMap::iterator it = mapBlockIndex.begin();
-    while (it != mapBlockIndex.end()) {
+    auto it = Blocks::indexMap.begin();
+    while (it != Blocks::indexMap.end()) {
         if (it->second->IsValid(BLOCK_VALID_TRANSACTIONS) && it->second->nChainTx && !setBlockIndexCandidates.value_comp()(it->second, chainActive.Tip())) {
             setBlockIndexCandidates.insert(it->second);
         }
@@ -2763,8 +2762,8 @@ bool ReconsiderBlock(CValidationState& state, CBlockIndex *pindex) {
     int nHeight = pindex->nHeight;
 
     // Remove the invalidity flag from this block and all its descendants.
-    BlockMap::iterator it = mapBlockIndex.begin();
-    while (it != mapBlockIndex.end()) {
+    auto it = Blocks::indexMap.begin();
+    while (it != Blocks::indexMap.end()) {
         if (!it->second->IsValid() && it->second->GetAncestor(nHeight) == pindex) {
             it->second->nStatus &= ~BLOCK_FAILED_MASK;
             setDirtyBlockIndex.insert(it->second);
@@ -2794,8 +2793,8 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
 {
     // Check for duplicate
     uint256 hash = block.GetHash();
-    BlockMap::iterator it = mapBlockIndex.find(hash);
-    if (it != mapBlockIndex.end())
+    auto it = Blocks::indexMap.find(hash);
+    if (it != Blocks::indexMap.end())
         return it->second;
 
     // Construct new block index object
@@ -2805,10 +2804,10 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
     // to avoid miners withholding blocks but broadcasting headers, to get a
     // competitive advantage.
     pindexNew->nSequenceId = 0;
-    BlockMap::iterator mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
+    auto mi = Blocks::indexMap.insert(make_pair(hash, pindexNew)).first;
     pindexNew->phashBlock = &((*mi).first);
-    BlockMap::iterator miPrev = mapBlockIndex.find(block.hashPrevBlock);
-    if (miPrev != mapBlockIndex.end())
+    auto miPrev = Blocks::indexMap.find(block.hashPrevBlock);
+    if (miPrev != Blocks::indexMap.end())
     {
         pindexNew->pprev = (*miPrev).second;
         pindexNew->nHeight = pindexNew->pprev->nHeight + 1;
@@ -2911,7 +2910,7 @@ bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAdd
             if (fPruneMode)
                 fCheckForPruning = true;
             if (CheckDiskSpace(nNewChunks * BLOCKFILE_CHUNK_SIZE - pos.nPos)) {
-                FILE *file = OpenBlockFile(pos);
+                FILE *file = Blocks::openFile(pos);
                 if (file) {
                     LogPrintf("Pre-allocating up to position 0x%x in blk%05u.dat\n", nNewChunks * BLOCKFILE_CHUNK_SIZE, pos.nFile);
                     AllocateFileRange(file, pos.nPos, nNewChunks * BLOCKFILE_CHUNK_SIZE - pos.nPos);
@@ -2944,7 +2943,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
         if (fPruneMode)
             fCheckForPruning = true;
         if (CheckDiskSpace(nNewChunks * UNDOFILE_CHUNK_SIZE - pos.nPos)) {
-            FILE *file = OpenUndoFile(pos);
+            FILE *file = Blocks::openUndoFile(pos);
             if (file) {
                 LogPrintf("Pre-allocating up to position 0x%x in rev%05u.dat\n", nNewChunks * UNDOFILE_CHUNK_SIZE, pos.nFile);
                 AllocateFileRange(file, pos.nPos, nNewChunks * UNDOFILE_CHUNK_SIZE - pos.nPos);
@@ -3132,11 +3131,11 @@ static bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state
     AssertLockHeld(cs_main);
     // Check for duplicate
     uint256 hash = block.GetHash();
-    BlockMap::iterator miSelf = mapBlockIndex.find(hash);
+    auto miSelf = Blocks::indexMap.find(hash);
     CBlockIndex *pindex = NULL;
     if (hash != chainparams.GetConsensus().hashGenesisBlock) {
 
-        if (miSelf != mapBlockIndex.end()) {
+        if (miSelf != Blocks::indexMap.end()) {
             // Block header is already known.
             pindex = miSelf->second;
             if (ppindex)
@@ -3151,8 +3150,8 @@ static bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state
 
         // Get prev block index
         CBlockIndex* pindexPrev = NULL;
-        BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
-        if (mi == mapBlockIndex.end())
+        auto mi = Blocks::indexMap.find(block.hashPrevBlock);
+        if (mi == Blocks::indexMap.end())
             return state.DoS(10, error("%s: prev block not found", __func__), 0, "bad-prevblk");
         pindexPrev = (*mi).second;
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
@@ -3324,7 +3323,7 @@ uint64_t CalculateCurrentUsage()
 /* Prune a block file (modify associated database entries)*/
 void PruneOneBlockFile(const int fileNumber)
 {
-    for (BlockMap::iterator it = mapBlockIndex.begin(); it != mapBlockIndex.end(); ++it) {
+    for (auto it = Blocks::indexMap.begin(); it != Blocks::indexMap.end(); ++it) {
         CBlockIndex* pindex = it->second;
         if (pindex->nFile == fileNumber) {
             pindex->nStatus &= ~BLOCK_HAVE_DATA;
@@ -3357,8 +3356,8 @@ void PruneOneBlockFile(const int fileNumber)
 void UnlinkPrunedFiles(std::set<int>& setFilesToPrune)
 {
     for (set<int>::iterator it = setFilesToPrune.begin(); it != setFilesToPrune.end(); ++it) {
-        boost::filesystem::remove(GetBlockPosFilename(*it, "blk"));
-        boost::filesystem::remove(GetBlockPosFilename(*it, "rev"));
+        boost::filesystem::remove(Blocks::getFilepathForIndex(*it, "blk"));
+        boost::filesystem::remove(Blocks::getFilepathForIndex(*it, "rev"));
         LogPrintf("Prune: %s deleted blk/rev (%05u)\n", __func__, *it);
     }
 }
@@ -3425,15 +3424,15 @@ bool CheckDiskSpace(uint64_t nAdditionalBytes)
 bool LoadBlockIndexDB()
 {
     const CChainParams& chainparams = Params();
-    if (!BlocksDB::instance()->CacheAllBlockInfos())
+    if (!Blocks::DB::instance()->CacheAllBlockInfos())
         return false;
 
     boost::this_thread::interruption_point();
 
     // Calculate nChainWork
     vector<pair<int, CBlockIndex*> > vSortedByHeight;
-    vSortedByHeight.reserve(mapBlockIndex.size());
-    BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
+    vSortedByHeight.reserve(Blocks::indexMap.size());
+    BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, Blocks::indexMap)
     {
         CBlockIndex* pindex = item.second;
         vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
@@ -3468,16 +3467,16 @@ bool LoadBlockIndexDB()
     }
 
     // Load block file info
-    BlocksDB::instance()->ReadLastBlockFile(nLastBlockFile);
+    Blocks::DB::instance()->ReadLastBlockFile(nLastBlockFile);
     vinfoBlockFile.resize(nLastBlockFile + 1);
     LogPrintf("%s: last block file = %i\n", __func__, nLastBlockFile);
     for (int nFile = 0; nFile <= nLastBlockFile; nFile++) {
-        BlocksDB::instance()->ReadBlockFileInfo(nFile, vinfoBlockFile[nFile]);
+        Blocks::DB::instance()->ReadBlockFileInfo(nFile, vinfoBlockFile[nFile]);
     }
     LogPrintf("%s: last block file info: %s\n", __func__, vinfoBlockFile[nLastBlockFile].ToString());
     for (int nFile = nLastBlockFile + 1; true; nFile++) {
         CBlockFileInfo info;
-        if (BlocksDB::instance()->ReadBlockFileInfo(nFile, info)) {
+        if (Blocks::DB::instance()->ReadBlockFileInfo(nFile, info)) {
             vinfoBlockFile.push_back(info);
         } else {
             break;
@@ -3487,7 +3486,7 @@ bool LoadBlockIndexDB()
     // Check presence of blk files
     LogPrintf("Checking all blk files are present...\n");
     set<int> setBlkDataFiles;
-    BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
+    BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, Blocks::indexMap)
     {
         CBlockIndex* pindex = item.second;
         if (pindex->nStatus & BLOCK_HAVE_DATA) {
@@ -3497,23 +3496,23 @@ bool LoadBlockIndexDB()
     for (std::set<int>::iterator it = setBlkDataFiles.begin(); it != setBlkDataFiles.end(); it++)
     {
         CDiskBlockPos pos(*it, 0);
-        if (CAutoFile(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION).IsNull()) {
+        if (CAutoFile(Blocks::openFile(pos, true), SER_DISK, CLIENT_VERSION).IsNull()) {
             return false;
         }
     }
 
     // Check whether we have ever pruned block & undo files
-    BlocksDB::instance()->ReadFlag("prunedblockfiles", fHavePruned);
+    Blocks::DB::instance()->ReadFlag("prunedblockfiles", fHavePruned);
     if (fHavePruned)
         LogPrintf("LoadBlockIndexDB(): Block files have previously been pruned\n");
 
     // Check whether we have a transaction index
-    BlocksDB::instance()->ReadFlag("txindex", fTxIndex);
+    Blocks::DB::instance()->ReadFlag("txindex", fTxIndex);
     LogPrintf("%s: transaction index %s\n", __func__, fTxIndex ? "enabled" : "disabled");
 
     // Load pointer to end of best chain
-    BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
-    if (it == mapBlockIndex.end())
+    auto it = Blocks::indexMap.find(pcoinsTip->GetBestBlock());
+    if (it == Blocks::indexMap.end())
         return true;
     chainActive.SetTip(it->second);
 
@@ -3641,10 +3640,10 @@ void UnloadBlockIndex()
         warningcache[b].clear();
     }
 
-    BOOST_FOREACH(BlockMap::value_type& entry, mapBlockIndex) {
+    BOOST_FOREACH(Blocks::BlockMap::value_type& entry, Blocks::indexMap) {
         delete entry.second;
     }
-    mapBlockIndex.clear();
+    Blocks::indexMap.clear();
     fHavePruned = false;
 }
 
@@ -3661,11 +3660,11 @@ bool InitBlockIndex(const CChainParams& chainparams)
 
     // Use the provided setting for -txindex in the new database
     fTxIndex = GetBoolArg("-txindex", DEFAULT_TXINDEX);
-    BlocksDB::instance()->WriteFlag("txindex", fTxIndex);
+    Blocks::DB::instance()->WriteFlag("txindex", fTxIndex);
     LogPrintf("Initializing databases...\n");
 
     // Only add the genesis block if not reindexing (in which case we reuse the one already on disk)
-    if (!BlocksDB::instance()->isReindexing()) {
+    if (!Blocks::DB::instance()->isReindexing()) {
         try {
             CBlock &block = const_cast<CBlock&>(chainparams.GenesisBlock());
             // Start new block file
@@ -3700,20 +3699,20 @@ void static CheckBlockIndex(const Consensus::Params& consensusParams)
     LOCK(cs_main);
 
     // During a reindex, we read the genesis block and call CheckBlockIndex before ActivateBestChain,
-    // so we have the genesis block in mapBlockIndex but no active chain.  (A few of the tests when
+    // so we have the genesis block in Blocks::indexMap but no active chain.  (A few of the tests when
     // iterating the block tree require that chainActive has been initialized.)
     if (chainActive.Height() < 0) {
-        assert(mapBlockIndex.size() <= 1);
+        assert(Blocks::indexMap.size() <= 1);
         return;
     }
 
     // Build forward-pointing map of the entire block tree.
     std::multimap<CBlockIndex*,CBlockIndex*> forward;
-    for (BlockMap::iterator it = mapBlockIndex.begin(); it != mapBlockIndex.end(); it++) {
+    for (auto it = Blocks::indexMap.begin(); it != Blocks::indexMap.end(); it++) {
         forward.insert(std::make_pair(it->second->pprev, it->second));
     }
 
-    assert(forward.size() == mapBlockIndex.size());
+    assert(forward.size() == Blocks::indexMap.size());
 
     std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeGenesis = forward.equal_range(NULL);
     CBlockIndex *pindex = rangeGenesis.first->second;
@@ -3767,7 +3766,7 @@ void static CheckBlockIndex(const Consensus::Params& consensusParams)
         assert(pindex->nHeight == nHeight); // nHeight must be consistent.
         assert(pindex->pprev == NULL || pindex->nChainWork >= pindex->pprev->nChainWork); // For every block except the genesis block, the chainwork must be larger than the parent's.
         assert(nHeight < 2 || (pindex->pskip && (pindex->pskip->nHeight < nHeight))); // The pskip pointer must point back for all but the first 2 blocks.
-        assert(pindexFirstNotTreeValid == NULL); // All mapBlockIndex entries must at least be TREE valid
+        assert(pindexFirstNotTreeValid == NULL); // All Blocks::indexMap entries must at least be TREE valid
         if ((pindex->nStatus & BLOCK_VALID_MASK) >= BLOCK_VALID_TREE) assert(pindexFirstNotTreeValid == NULL); // TREE valid implies all parents are TREE valid
         if ((pindex->nStatus & BLOCK_VALID_MASK) >= BLOCK_VALID_CHAIN) assert(pindexFirstNotChainValid == NULL); // CHAIN valid implies all parents are CHAIN valid
         if ((pindex->nStatus & BLOCK_VALID_MASK) >= BLOCK_VALID_SCRIPTS) assert(pindexFirstNotScriptsValid == NULL); // SCRIPTS valid implies all parents are SCRIPTS valid
@@ -3952,7 +3951,7 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
                    pcoinsTip->HaveCoins(inv.hash);
         }
     case MSG_BLOCK:
-        return mapBlockIndex.count(inv.hash);
+        return Blocks::indexMap.count(inv.hash);
     }
     // Don't know what it is, just say we already got one
     return true;
@@ -3980,8 +3979,8 @@ void static ProcessGetData(CNode* pfrom, const Consensus::Params& consensusParam
                     || inv.type == MSG_THINBLOCK || inv.type == MSG_XTHINBLOCK)
             {
                 bool send = false;
-                BlockMap::iterator mi = mapBlockIndex.find(inv.hash);
-                if (mi != mapBlockIndex.end())
+                auto mi = Blocks::indexMap.find(inv.hash);
+                if (mi != Blocks::indexMap.end())
                 {
                     if (chainActive.Contains(mi->second)) {
                         send = true;
@@ -4122,7 +4121,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 {
     const CChainParams& chainparams = Params();
     RandAddSeedPerfmon();
-    const bool fReindex = BlocksDB::instance()->isReindexing();
+    const bool fReindex = Blocks::DB::instance()->isReindexing();
     LogPrint("net", "received: %s (%u bytes) peer=%d\n", SanitizeString(strCommand), vRecv.size(), pfrom->id);
     if (mapArgs.count("-dropmessagestest") && GetRand(atoi(mapArgs["-dropmessagestest"])) == 0)
     {
@@ -4556,8 +4555,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (locator.IsNull())
         {
             // If locator is null, return the hashStop block
-            BlockMap::iterator mi = mapBlockIndex.find(hashStop);
-            if (mi == mapBlockIndex.end())
+            auto mi = Blocks::indexMap.find(hashStop);
+            if (mi == Blocks::indexMap.end())
                 return true;
             pindex = (*mi).second;
         }
@@ -4994,8 +4993,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         }
 
         LOCK(cs_main);
-        BlockMap::iterator mi = mapBlockIndex.find(inv.hash);
-        if (mi == mapBlockIndex.end()) {
+        auto mi = Blocks::indexMap.find(inv.hash);
+        if (mi == Blocks::indexMap.end()) {
             Misbehaving(pfrom->GetId(), 100);
             return false;
         }
@@ -5446,7 +5445,7 @@ bool ProcessMessages(CNode* pfrom)
 
 bool SendMessages(CNode* pto)
 {
-    const bool fReindex = BlocksDB::instance()->isReindexing();
+    const bool fReindex = Blocks::DB::instance()->isReindexing();
     const Consensus::Params& consensusParams = Params().GetConsensus();
     {
         // Don't send anything until we get its version message
@@ -5594,8 +5593,8 @@ bool SendMessages(CNode* pto)
                 // then send all headers past that one.  If we come across any
                 // headers that aren't on chainActive, give up.
                 BOOST_FOREACH(const uint256 &hash, pto->vBlockHashesToAnnounce) {
-                    BlockMap::iterator mi = mapBlockIndex.find(hash);
-                    assert(mi != mapBlockIndex.end());
+                    auto mi = Blocks::indexMap.find(hash);
+                    assert(mi != Blocks::indexMap.end());
                     CBlockIndex *pindex = mi->second;
                     if (chainActive[pindex->nHeight] != pindex) {
                         // Bail out if we reorged away from this block
@@ -5642,8 +5641,8 @@ bool SendMessages(CNode* pto)
                 // in the past.
                 if (!pto->vBlockHashesToAnnounce.empty()) {
                     const uint256 &hashToAnnounce = pto->vBlockHashesToAnnounce.back();
-                    BlockMap::iterator mi = mapBlockIndex.find(hashToAnnounce);
-                    assert(mi != mapBlockIndex.end());
+                    auto mi = Blocks::indexMap.find(hashToAnnounce);
+                    assert(mi != Blocks::indexMap.end());
                     CBlockIndex *pindex = mi->second;
 
                     // Warn if we're announcing a block that is not on the main chain.
@@ -5858,9 +5857,9 @@ public:
     CMainCleanup() {}
     ~CMainCleanup() {
         // block headers
-        BlockMap::iterator it1 = mapBlockIndex.begin();
-        for (; it1 != mapBlockIndex.end(); it1++)
+        auto it1 = Blocks::indexMap.begin();
+        for (; it1 != Blocks::indexMap.end(); it1++)
             delete (*it1).second;
-        mapBlockIndex.clear();
+        Blocks::indexMap.clear();
     }
 } instance_of_cmaincleanup;

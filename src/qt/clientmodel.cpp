@@ -135,7 +135,7 @@ bool ClientModel::inInitialBlockDownload() const
 
 enum BlockSource ClientModel::getBlockSource() const
 {
-    if (BlocksDB::instance()->isReindexing())
+    if (Blocks::DB::instance()->isReindexing())
         return BLOCK_SOURCE_REINDEX;
     else if (fImporting)
         return BLOCK_SOURCE_DISK;
