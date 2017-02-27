@@ -503,6 +503,7 @@ public:
             std::string string = boost::get<std::string>(data);
             WriteVarInt<Stream, uint64_t>(s, string.size());
             s.write((char*)&string[0], string.size());
+            break;
         }
         case ByteArray: {
             std::vector<char> bytes = boost::get<std::vector<char> >(data);
