@@ -396,7 +396,6 @@ public:
     explicit CMFToken(uint32_t tag, bool in = true) : tag(tag), format(in ? BoolTrue : BoolFalse) {}
     CMFToken(uint32_t tag, int32_t in) : tag(tag), format(in >= 0 ? PositiveNumber : NegativeNumber), data(in) {}
     CMFToken(uint32_t tag, uint64_t in) : tag(tag), format(PositiveNumber), data(in) {}
-    CMFToken(uint32_t tag, std::string in) : tag(tag), format(String), data(in) {}
     CMFToken(uint32_t tag, std::vector<char> in) : tag(tag), format(ByteArray), data(in) {}
 
     CMFToken& operator=(const CMFToken &other) = default;
@@ -406,7 +405,7 @@ public:
     enum Format {
         PositiveNumber = 0,
         NegativeNumber,
-        String,
+        String, // we don't use strings in this class because std::string and utf8 are not best friends.
         ByteArray,
         BoolTrue,
         BoolFalse,
@@ -456,15 +455,6 @@ public:
                 data = static_cast<int32_t>(tmp);
             break;
         }
-        case String: {
-            int32_t size = ReadVarInt<Stream,int32_t>(s);
-            std::string string;
-            string.resize(size);
-            if (size > 0)
-                s.read((char*)&string[0], size);
-            data = string;
-            break;
-        }
         case ByteArray: {
             int32_t size = ReadVarInt<Stream,int32_t>(s);
             std::vector<char> bytes;
@@ -474,6 +464,7 @@ public:
             data = bytes;
             break;
         }
+        case String:
         case BoolTrue: data = true; break;
         case BoolFalse: data = false; break;
         case Double: // This class is only used for transactions, which doesn't need or want Doubles
@@ -499,12 +490,6 @@ public:
         case PositiveNumber:
             WriteVarInt<Stream, uint64_t>(s, data.which() == 0 ? boost::get<int32_t>(data) : boost::get<uint64_t>(data));
             break;
-        case String: {
-            std::string string = boost::get<std::string>(data);
-            WriteVarInt<Stream, uint64_t>(s, string.size());
-            s.write((char*)&string[0], string.size());
-            break;
-        }
         case ByteArray: {
             std::vector<char> bytes = boost::get<std::vector<char> >(data);
             WriteVarInt<Stream, uint64_t>(s, bytes.size());
@@ -513,6 +498,8 @@ public:
         }
         case BoolTrue: break;
         case BoolFalse: break;
+        case String:
+            // fall through;  Strings are not used in transactions.
         case Double: // This class is only used for transactions, which doesn't need or want Doubles
             assert(false);
             break;
