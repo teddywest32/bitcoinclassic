@@ -598,7 +598,7 @@ public:
     bool found;
     CValidationState state;
 
-    submitblock_StateCatcher(const uint256 &hashIn) : hash(hashIn), found(false), state() {};
+    submitblock_StateCatcher(const uint256 &hashIn) : hash(hashIn), found(false), state() {}
 
 protected:
     virtual void BlockChecked(const CBlock& block, const CValidationState& stateIn) {
@@ -606,7 +606,7 @@ protected:
             return;
         found = true;
         state = stateIn;
-    };
+    }
 };
 
 UniValue submitblock(const UniValue& params, bool fHelp)
