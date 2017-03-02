@@ -72,7 +72,6 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
-bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
@@ -87,7 +86,6 @@ CTxMemPool mempool(::minRelayTxFee);
  * in the last Consensus::Params::nMajorityWindow blocks, starting at pstart and going backwards.
  */
 static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams);
-static void CheckBlockIndex(const Consensus::Params& consensusParams);
 
 const string strMessageMagic = "Bitcoin Signed Message:\n";
 
@@ -2707,7 +2705,7 @@ bool ActivateBestChain(CValidationState &state, const CChainParams& chainparams,
             }
         }
     } while(pindexMostWork != chainActive.Tip());
-    CheckBlockIndex(chainparams.GetConsensus());
+    CheckBlockIndex();
 
     // Write changes periodically to disk, after relay.
     if (!FlushStateToDisk(state, FLUSH_STATE_PERIODIC)) {
@@ -3269,7 +3267,7 @@ bool ProcessNewBlock(CValidationState& state, const CChainParams& chainparams, c
         if (pindex && pfrom) {
             mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
         }
-        CheckBlockIndex(chainparams.GetConsensus());
+        CheckBlockIndex();
         if (!ret)
             return error("%s: AcceptBlock FAILED", __func__);
     }
@@ -3690,11 +3688,12 @@ bool InitBlockIndex(const CChainParams& chainparams)
     return true;
 }
 
-void static CheckBlockIndex(const Consensus::Params& consensusParams)
+void CheckBlockIndex()
 {
-    if (!fCheckBlockIndex) {
+    bool fCheckBlockIndex = GetBoolArg("-checkblockindex", Params().DefaultConsistencyChecks());
+    if (!fCheckBlockIndex)
         return;
-    }
+    const Consensus::Params& consensusParams = Params().GetConsensus();
 
     LOCK(cs_main);
 
@@ -4818,7 +4817,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             }
         }
 
-        CheckBlockIndex(chainparams.GetConsensus());
+        CheckBlockIndex();
     }
 
     // BUIP010 Xtreme Thinblocks: begin section
