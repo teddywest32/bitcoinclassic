@@ -15,11 +15,11 @@ gradually.
 
 Block style example:
 ```c++
-namespace foo
+namespace Foo
 {
 class Class
 {
-    bool Function(char* psz, int n)
+    bool method(char* psz, int n)
     {
         // Comment summarising what this section of code does
         for (int i = 0; i < n; i++) {
@@ -33,6 +33,11 @@ class Class
         return true;
     }
 }
+}
+
+// Globally scoped functions start with a Capital.
+void Function(const std::string &value)
+{
 }
 ```
 
@@ -76,7 +81,7 @@ Also OK:
 ///
 /// ... text ...
 ///
-bool function2(int arg1, const char *arg2)
+bool Function2(int arg1, const char *arg2)
 ```
 
 Not OK (used plenty in the current source, but not picked up):
@@ -130,11 +135,18 @@ Locking/mutex usage notes
 The code is multi-threaded, and uses mutexes and the
 LOCK/TRY_LOCK macros to protect data structures.
 
+The LOCK/TRY_LOCk are a legacy idea from a past era and essentially just wrap
+boost::recursive_mutex and a scoped_lock. Please use actual mutexes in new code,
+or even better, use atomics and write lock-free code.
+
 Deadlocks due to inconsistent lock ordering (thread 1 locks cs_main
 and then cs_wallet, while thread 2 locks them in the opposite order:
 result, deadlock as each waits for the other to release its lock) are
 a problem. Compile with -DDEBUG_LOCKORDER to get lock order
 inconsistencies reported in the debug.log file.
+
+NOTE: order inconsistencies-checks are broken and assume all locks are global
+variables. Its best to ignore the warnings.
 
 Re-architecting the core code so there are better-defined interfaces
 between the various components is a goal, with any necessary locking
@@ -208,9 +220,9 @@ Development guidelines
 ============================
 
 A few non-style-related recommendations for developers, as well as points to
-pay attention to for reviewers of Bitcoin Core code.
+pay attention to for reviewers of Bitcoin code.
 
-General Bitcoin Core
+General Bitcoin
 ----------------------
 
 - New features should be exposed on RPC first, then can be made available in the GUI
@@ -218,14 +230,14 @@ General Bitcoin Core
   - *Rationale*: RPC allows for better automatic testing. The test suite for
     the GUI is very limited
 
-- Make sure pull requests pass Travis CI before merging
+- Make sure pull requests pass Teamcity CI before merging
 
   - *Rationale*: Makes sure that they pass thorough testing, and that the tester will keep passing
      on the master branch. Otherwise all new pull requests will start failing the tests, resulting in
      confusion and mayhem
- 
+
   - *Explanation*: If the test suite is to be updated for a change, this has to
-    be done first 
+    be done first
 
 Wallet
 -------
@@ -257,7 +269,7 @@ General C++
       the `.h` to the `.cpp` should not result in build errors
 
 - Use the RAII (Resource Acquisition Is Initialization) paradigm where possible. For example by using
-  `scoped_pointer` for allocations in a function.
+  `unique_pointer` for allocations in a function.
 
   - *Rationale*: This avoids memory and resource leaks, and ensures exception safety
 
@@ -289,12 +301,6 @@ C++ data structures
 
   - *Rationale*: Ensure determinism by avoiding accidental use of uninitialized
     values. Also, static analyzers balk about this.
-
-- Use explicitly signed or unsigned `char`s, or even better `uint8_t` and
-  `int8_t`. Do not use bare `char` unless it is to pass to a third-party API.
-  This type can be signed or unsigned depending on the architecture, which can
-  lead to interoperability problems or dangerous conditions such as
-  out-of-bounds array accesses
 
 - Prefer explicit constructions over implicit ones that rely on 'magical' C++ behavior
 
