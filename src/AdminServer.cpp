@@ -22,6 +22,8 @@
 #include "streaming/MessageBuilder.h"
 #include "streaming/MessageParser.h"
 
+#include "chainparamsbase.h"
+#include "netbase.h"
 #include "util.h"
 #include "utilstrencodings.h"
 #include "random.h"
@@ -64,10 +66,31 @@ Admin::Server::Server(boost::asio::io_service &service)
         LogPrintf("Generated admin-authentication cookie %s\n", path.string());
     }
 
-    // TODO find out how to listen to the right ports based on the arguments users type
-    boost::asio::ip::tcp::endpoint endpoint4(boost::asio::ip::tcp::v4(), 1235);
-    // boost::asio::ip::tcp::endpoint endpoint6(boost::asio::ip::tcp::v6(), 1236);
-    m_networkManager.bind(endpoint4, std::bind(&Admin::Server::newConnection, this, std::placeholders::_1));
+    int defaultPort = BaseParams().AdminServerPort();
+    std::list<boost::asio::ip::tcp::endpoint> endpoints;
+
+    if (mapArgs.count("-adminlisten")) {
+        for (auto strAddress : mapMultiArgs["-adminlisten"]) {
+            int port = defaultPort;
+            std::string host;
+            SplitHostPort(strAddress, port, host);
+            if (host.empty())
+                host = "127.0.0.1";
+            endpoints.push_back(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(host), port));
+        }
+    } else {
+        endpoints.push_back(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), defaultPort));
+        endpoints.push_back(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("::1"), defaultPort));
+    }
+
+    for (auto endpoint : endpoints) {
+        try {
+            m_networkManager.bind(endpoint, std::bind(&Admin::Server::newConnection, this, std::placeholders::_1));
+            LogPrintf("Admin Server listening on %s\n", endpoint);
+        } catch (const std::exception &e) {
+            LogPrintf("Admin Server failed to listen on %s. %s", endpoint, e.what());
+        }
+    }
 }
 
 void Admin::Server::newConnection(NetworkConnection &connection)

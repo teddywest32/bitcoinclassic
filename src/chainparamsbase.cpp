@@ -24,6 +24,7 @@ public:
     CBaseMainParams()
     {
         nRPCPort = 8332;
+        nAdminServerPort = 1235;
     }
 };
 static CBaseMainParams mainParams;
@@ -37,6 +38,7 @@ public:
     CBaseTestNetParams()
     {
         nRPCPort = 18332;
+        nAdminServerPort = 11235;
         strDataDir = "testnet3";
     }
 };
@@ -51,6 +53,7 @@ public:
     CBaseFTTestNetParams()
     {
         nRPCPort = 18334;
+        nAdminServerPort = 11236;
         strDataDir = "testnet-ft";
     }
 };
@@ -65,6 +68,7 @@ public:
     CBaseRegTestParams()
     {
         nRPCPort = 18332;
+        nAdminServerPort = 11235;
         strDataDir = "regtest";
     }
 };
