@@ -55,7 +55,7 @@ public:
                     map_.erase(it->first);
                 }
             }
-            mapCoins.erase(it++);
+            ++it;
         }
         if (!hashBlock.IsNull())
             hashBestBlock_ = hashBlock;
