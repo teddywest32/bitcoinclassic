@@ -1,3 +1,9 @@
+bitcoinclassic (1.2.2-trusty1) trusty; urgency=medium
+
+  * Cherry-pick remote-crash bug from upstream (BU)
+
+ -- Tom Z <tomz@freedommail.ch>  Tue, 15 Mar 2017 10:00:00 +0100
+
 bitcoinclassic (1.2.1-trusty1) trusty; urgency=medium
 
   * Bugfix release
