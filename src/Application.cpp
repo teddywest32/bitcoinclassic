@@ -65,6 +65,7 @@ Application::Application()
     for (int i = boost::thread::hardware_concurrency(); i > 0; --i) {
         auto ioservice(m_ioservice);
         m_threads.create_thread([ioservice] {
+            RenameThread("Appl-Threadpool");
             while(true) {
                 try {
                     ioservice->run();
