@@ -4391,20 +4391,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         return true;
     }
 
-    if (!(nLocalServices & NODE_BLOOM) &&
-              (strCommand == NetMsgType::FILTERLOAD ||
-               strCommand == NetMsgType::FILTERADD ||
-               strCommand == NetMsgType::FILTERCLEAR))
-    {
-        if (pfrom->nVersion >= NO_BLOOM_VERSION) {
-            Misbehaving(pfrom->GetId(), 100);
-            return false;
-        } else if (GetBoolArg("-enforcenodebloom", false)) {
-            pfrom->fDisconnect = true;
-            return false;
-        }
-    }
-
+    const bool xthinEnabled = IsThinBlocksEnabled();
 
     if (strCommand == NetMsgType::VERSION)
     {
@@ -4548,7 +4535,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             // nodes)
 
             // BUIP010 Extreme Thinblocks: We only do inv/getdata for xthinblocks and so we must have headersfirst turned off
-            if (!IsThinBlocksEnabled())
+            if (!xthinEnabled)
                 pfrom->PushMessage(NetMsgType::SENDHEADERS);
         }
     }
@@ -4624,7 +4611,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     {
         LOCK(cs_main);
         // BUIP010 Xtreme Thinblocks: We only do inv/getdata for xthinblocks and so we must have headersfirst turned off
-        if (IsThinBlocksEnabled())
+        if (xthinEnabled)
             State(pfrom->GetId())->fPreferHeaders = false;
         else
             State(pfrom->GetId())->fPreferHeaders = true;
@@ -4679,7 +4666,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                         // BUIP010 Xtreme Thinblocks: begin section
                         CInv inv2(inv);
                         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-                        if (IsThinBlocksEnabled() && IsChainNearlySyncd()) {
+                        if (xthinEnabled && IsChainNearlySyncd()) {
                             if (HaveThinblockNodes() && CheckThinblockTimer(inv.hash)) {
                                 // Must download a block from a ThinBlock peer
                                 if (pfrom->mapThinBlocksInFlight.size() < 1 && pfrom->ThinBlockCapable()) { // We can only send one thinblock per peer at a time
@@ -5052,6 +5039,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             pfrom->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexLast), uint256());
         }
 
+        if (pindexLast == nullptr) // should never hit.
+            return false;
+
         bool fCanDirectFetch = CanDirectFetch(chainparams.GetConsensus());
         CNodeState *nodestate = State(pfrom->GetId());
         // If this set of headers is valid and ends in a block with at least as
@@ -5076,7 +5066,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 LogPrint("net", "Large reorg, won't direct fetch to %s (%d)\n",
                         pindexLast->GetBlockHash().ToString(),
                         pindexLast->nHeight);
-            } else if (!IsThinBlocksEnabled()) { // We don't yet support headers-first for XThinblocks.
+            } else if (!xthinEnabled) { // We don't yet support headers-first for XThinblocks.
                 vector<CInv> vGetData;
                 // Download as much as possible, from earliest to latest.
                 BOOST_REVERSE_FOREACH(CBlockIndex *pindex, vToFetch) {
@@ -5105,9 +5095,18 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     // BUIP010 Xtreme Thinblocks: begin section
     else if (strCommand == NetMsgType::GET_XTHIN && !fImporting && !fReindex) // Ignore blocks received while importing
     {
+        if (!xthinEnabled) {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 100);
+            return false;
+        }
         CBloomFilter filterMemPool;
         CInv inv;
         vRecv >> inv >> filterMemPool;
+        if (inv.type != MSG_XTHINBLOCK && inv.type != MSG_THINBLOCK) {
+            Misbehaving(pfrom->GetId(), 20);
+            return false;
+        }
 
         LoadFilter(pfrom, &filterMemPool);
         pfrom->vRecvGetData.insert(pfrom->vRecvGetData.end(), inv);
@@ -5115,6 +5114,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     }
     else if (strCommand == NetMsgType::XTHINBLOCK  && !fImporting && !fReindex) // Ignore blocks received while importing
     {
+        if (!xthinEnabled) {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 100);
+            return false;
+        }
         CXThinBlock thinBlock;
         vRecv >> thinBlock;
 
@@ -5127,7 +5131,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (!pfrom->mapThinBlocksInFlight.count(inv.hash)) {
             LogPrint("thin", "Thinblock received but not requested %s from peer %s (%d)\n",inv.hash.ToString(),
                      pfrom->addrName.c_str(), pfrom->addrName.c_str(), pfrom->id);
+            LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 20);
+            return false;
         }
 
         pfrom->thinBlock.SetNull();
@@ -5263,6 +5269,16 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::XBLOCKTX && !fImporting && !fReindex) // handle Re-requested thinblock transactions
     {
+        if (!xthinEnabled) {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 100);
+            return false;
+        }
+        if (pfrom->xThinBlockHashes.size() != pfrom->thinBlock.vtx.size()) { // crappy, but fast solution.
+            LogPrint("thin", "Inconsistent thin block data while processing xblock-tx\n");
+            return true;
+        }
+
         CXThinBlockTx thinBlockTx;
         vRecv >> thinBlockTx;
 
@@ -5272,12 +5288,14 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             LogPrint("thin", "ThinblockTx received but not requested %s  peer=%d\n",inv.hash.ToString(), pfrom->id);
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 20);
+            return false;
         }
 
         // Create the mapMissingTx from all the supplied tx's in the xthinblock
         std::map<uint64_t, CTransaction> mapMissingTx;
         BOOST_FOREACH(CTransaction tx, thinBlockTx.vMissingTx)
             mapMissingTx[tx.GetHash().GetCheapHash()] = tx;
+
 
         for (size_t i = 0; i < pfrom->thinBlock.vtx.size(); i++) {
              if (pfrom->thinBlock.vtx[i].IsNull()) {
@@ -5306,22 +5324,32 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
             std::vector<CTransaction> vTx = pfrom->thinBlock.vtx;
             HandleBlockMessage(pfrom, strCommand, pfrom->thinBlock, inv);
-            for (unsigned int i = 0; i < vTx.size(); i++)
+            for (size_t i = 0; i < vTx.size(); i++)
                 EraseOrphanTx(vTx[i].GetHash());
         }
         else {
             LogPrint("thin", "Failed to retrieve all transactions for block - DOS Banned\n");
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
+            return false;
         }
     }
 
-
     else if (strCommand == NetMsgType::GET_XBLOCKTX && !fImporting && !fReindex) // return Re-requested xthinblock transactions
     {
+        if (!xthinEnabled) {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 100);
+            return false;
+        }
         CXRequestThinBlockTx thinRequestBlockTx;
         vRecv >> thinRequestBlockTx;
 
+        if (thinRequestBlockTx.setCheapHashesToRequest.empty()) { // empty request??
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 100);
+            return false;
+        }
         // We use MSG_TX here even though we refer to blockhash because we need to track
         // how many xblocktx requests we make in case of DOS
         CInv inv(MSG_TX, thinRequestBlockTx.blockhash);
@@ -5344,30 +5372,48 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             }
         }
 
-        {
         LOCK(cs_main);
         BlockMap::iterator mi = mapBlockIndex.find(inv.hash);
         if (mi == mapBlockIndex.end()) {
             Misbehaving(pfrom->GetId(), 100);
             return false;
         }
+        CBlockIndex *index = mi->second;
+        assert(index);
+        if (index->nHeight + 100 < chainActive.Height()) {
+            // a node that is behind should never use this method.
+            Misbehaving(pfrom->GetId(), 10);
+            return false;
+        }
+        if ((index->nStatus & BLOCK_HAVE_DATA) == 0) {
+            LogPrintf("GET_XBLOCKTX requested block-data not available %s\n", inv.hash.ToString().c_str());
+            return false;
+        }
         CBlock block;
         const Consensus::Params& consensusParams = Params().GetConsensus();
-        if (!ReadBlockFromDisk(block, (*mi).second, consensusParams))
-            assert(!"cannot load block from disk");
+        if (!ReadBlockFromDisk(block, index, consensusParams)) {
+            LogPrintf("Internal error, file missing datafile %d (block: %d)\n", index->nFile, index->nHeight);
+            return false;
+        }
 
         std::vector<CTransaction> vTx;
-        for (unsigned int i = 0; i < block.vtx.size(); i++)
-        {
+        int todo = thinRequestBlockTx.setCheapHashesToRequest.size();
+        for (size_t i = 0; i < block.vtx.size(); i++) { // TODO why include coinbase?
             uint64_t cheapHash = block.vtx[i].GetHash().GetCheapHash();
-            if(thinRequestBlockTx.setCheapHashesToRequest.count(cheapHash))
+            if (thinRequestBlockTx.setCheapHashesToRequest.count(cheapHash)) {
                 vTx.push_back(block.vtx[i]);
+                if (--todo == 0)
+                    break;
+            }
+        }
+        if (todo > 0) { // node send us a request for transactions which were not in the block.
+            Misbehaving(pfrom->GetId(), 100);
+            return false;
         }
 
         pfrom->AddInventoryKnown(inv);
         CXThinBlockTx thinBlockTx(thinRequestBlockTx.blockhash, vTx);
         pfrom->PushMessage(NetMsgType::XBLOCKTX, thinBlockTx);
-        }
     }
     // BUIP010 Xtreme Thinblocks: end section
 
@@ -5527,14 +5573,21 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERLOAD)
     {
+        if (!xthinEnabled) {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 10);
+            return false;
+        }
+
         CBloomFilter filter;
         vRecv >> filter;
 
-        if (!filter.IsWithinSizeConstraints())
+        if (!filter.IsWithinSizeConstraints()) {
             // There is no excuse for sending a too-large filter
+            LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
-        else
-        {
+            return false;
+        } else {
             LOCK(pfrom->cs_filter);
             delete pfrom->pfilter;
             pfrom->pfilter = new CBloomFilter(filter);
@@ -5546,14 +5599,20 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERADD)
     {
+        if (!xthinEnabled) {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 10);
+            return false;
+        }
         vector<unsigned char> vData;
         vRecv >> vData;
 
         // Nodes must NEVER send a data item > 520 bytes (the max size for a script data object,
         // and thus, the maximum size any matched object can have) in a filteradd message
-        if (vData.size() > MAX_SCRIPT_ELEMENT_SIZE)
-        {
+        if (vData.size() > MAX_SCRIPT_ELEMENT_SIZE) {
+            LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
+            return false;
         } else {
             LOCK(pfrom->cs_filter);
             if (pfrom->pfilter)
@@ -5566,6 +5625,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERCLEAR)
     {
+        if (!xthinEnabled) {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 10);
+            return false;
+        }
         LOCK(pfrom->cs_filter);
         delete pfrom->pfilter;
         pfrom->pfilter = new CBloomFilter();
