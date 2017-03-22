@@ -1,3 +1,10 @@
+bitcoinclassic (1.2.3-trusty1) trusty; urgency=high
+
+  * Fix a handful more problems in BUs code and make
+    it possible to turn off xthin completely.
+
+ -- Tom Z <tomz@freedommail.ch>  Tue, 22 Mar 2017 13:00:00 +0100
+
 bitcoinclassic (1.2.2-trusty1) trusty; urgency=medium
 
   * Cherry-pick remote-crash bug from upstream (BU)
