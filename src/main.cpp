@@ -5104,6 +5104,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CInv inv;
         vRecv >> inv >> filterMemPool;
         if (inv.type != MSG_XTHINBLOCK && inv.type != MSG_THINBLOCK) {
+            LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 20);
             return false;
         }
@@ -5398,7 +5399,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         std::vector<CTransaction> vTx;
         int todo = thinRequestBlockTx.setCheapHashesToRequest.size();
-        for (size_t i = 0; i < block.vtx.size(); i++) { // TODO why include coinbase?
+        for (size_t i = 1; i < block.vtx.size(); i++) {
             uint64_t cheapHash = block.vtx[i].GetHash().GetCheapHash();
             if (thinRequestBlockTx.setCheapHashesToRequest.count(cheapHash)) {
                 vTx.push_back(block.vtx[i]);
@@ -5573,9 +5574,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERLOAD)
     {
-        if (!xthinEnabled) {
+        if (GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
-            Misbehaving(pfrom->GetId(), 10);
+            Misbehaving(pfrom->GetId(), 100);
             return false;
         }
 
@@ -5599,9 +5600,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERADD)
     {
-        if (!xthinEnabled) {
+        if (GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
-            Misbehaving(pfrom->GetId(), 10);
+            Misbehaving(pfrom->GetId(), 100);
             return false;
         }
         vector<unsigned char> vData;
@@ -5625,9 +5626,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERCLEAR)
     {
-        if (!xthinEnabled) {
+        if (GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
-            Misbehaving(pfrom->GetId(), 10);
+            Misbehaving(pfrom->GetId(), 100);
             return false;
         }
         LOCK(pfrom->cs_filter);
