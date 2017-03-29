@@ -154,6 +154,12 @@ public:
      */
     void writeInt32(unsigned int data);
 
+    /// Stream interface for compatibility with the legacy serialization
+    inline void write(const char *buf, size_t size) {
+        memcpy(data(), buf, size);
+        markUsed((int) size);
+    }
+
     /// return the shared pointer to the buffer, useful to upgrade the refcount.
     std::shared_ptr<char> internal_buffer() const;
 private:
