@@ -69,12 +69,16 @@ BOOST_AUTO_TEST_CASE(GetSigOpCount)
 BOOST_AUTO_TEST_CASE(blockSigOpAcceptLimit)
 {
     BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(0), 20000);
-    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(100), 20000);
-    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(50000), 20000);
-    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1e6), 20000);
-    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1e6 + 1), 40000);
-    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(2e6), 40000);
-    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(4e6 + 1), 100000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(70000), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(999999), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1000000), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1000001), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1700000), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1999999), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(2000000), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(2000001), 60000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(INT32_MAX), 42960000);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
