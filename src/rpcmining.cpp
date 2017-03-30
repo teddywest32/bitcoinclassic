@@ -15,6 +15,7 @@
 #include "miner.h"
 #include "net.h"
 #include "BlocksDB.h"
+#include "policy/policy.h"
 #include "pow.h"
 #include "rpcserver.h"
 #include "txmempool.h"
@@ -580,8 +581,8 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     result.push_back(Pair("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1));
     result.push_back(Pair("mutable", aMutable));
     result.push_back(Pair("noncerange", "00000000ffffffff"));
-    result.push_back(Pair("sigoplimit", static_cast<int64_t>(MAX_BLOCK_SIGOPS)));
     int64_t sizeLimit = 32E6; // lets have a nice big default, the goal is to remove this from the API
+    result.push_back(Pair("sigoplimit", Policy::blockSigOpAcceptLimit(sizeLimit)));
     result.push_back(Pair("sizelimit", sizeLimit));
     result.push_back(Pair("curtime", pblock->GetBlockTime()));
     result.push_back(Pair("bits", strprintf("%08x", pblock->nBits)));

@@ -210,3 +210,9 @@ int32_t Policy::blockSizeAcceptLimit()
         LogPrintf("BlockSize set to extremely low value (%d bytes), this may cause failures.\n", limit);
     return limit;
 }
+
+int64_t Policy::blockSigOpAcceptLimit(int32_t nBlockSize)
+{
+    uint64_t nBlockSizeMb = 1 + ((nBlockSize - 1) / 1000000);
+    return nBlockSizeMb * MAX_BLOCK_SIGOPS_PER_MB;
+}

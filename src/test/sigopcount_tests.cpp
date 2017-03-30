@@ -4,6 +4,7 @@
 
 #include "pubkey.h"
 #include "key.h"
+#include "policy/policy.h"
 #include "script/script.h"
 #include "script/standard.h"
 #include "uint256.h"
@@ -62,6 +63,22 @@ BOOST_AUTO_TEST_CASE(GetSigOpCount)
     CScript scriptSig2;
     scriptSig2 << OP_1 << ToByteVector(dummy) << ToByteVector(dummy) << Serialize(s2);
     BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(scriptSig2), 3U);
+}
+
+
+BOOST_AUTO_TEST_CASE(blockSigOpAcceptLimit)
+{
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(0), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(70000), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(999999), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1000000), 20000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1000001), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1700000), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(1999999), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(2000000), 40000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(2000001), 60000);
+    BOOST_CHECK_EQUAL(Policy::blockSigOpAcceptLimit(INT32_MAX), 42960000);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
