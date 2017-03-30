@@ -2383,7 +2383,8 @@ bool static DisconnectTip(CValidationState& state, const Consensus::Params& cons
         CCoinsViewCache view(pcoinsTip);
         if (!DisconnectBlock(block, pindexDelete, view))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
-        assert(view.Flush());
+        bool flushed = view.Flush();
+        assert(flushed);
     }
     LogPrint("bench", "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * 0.001);
     // Write the chain state to disk, if necessary.
