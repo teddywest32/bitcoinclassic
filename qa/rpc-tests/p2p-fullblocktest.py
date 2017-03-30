@@ -25,7 +25,8 @@ We use the testing framework in which we expect a particular answer from
 each test.
 '''
 
-MAX_BLOCK_SIZE = 1000000
+MAX_BLOCK_SIZE = 2000000
+MAX_BLOCK_SIGOPS_PER_MB = 20000
 
 class FullBlockTest(ComparisonTestFramework):
 
@@ -41,9 +42,9 @@ class FullBlockTest(ComparisonTestFramework):
         self.tip = None
         self.blocks = {}
 
-    def setup_nodes(self):
-        return start_nodes(4, self.options.tmpdir,
-                extra_args = [["-maxblocksize=1000000", "--blocksizeacceptlimit=1"]])
+    def setup_network(self):
+        self.nodes = start_nodes(1, self.options.tmpdir,
+                extra_args = [['-whitelist=127.0.0.1', '-debug', '-blocksizeacceptlimit=2']])
 
     def run_test(self):
         test = TestManager(self, self.options.tmpdir)
@@ -61,7 +62,7 @@ class FullBlockTest(ComparisonTestFramework):
     # Create a block on top of self.tip, and advance self.tip to point to the new block
     # if spend is specified, then 1 satoshi will be spent from that to an anyone-can-spend output,
     # and rest will go to fees.
-    def next_block(self, number, spend=None, additional_coinbase_value=0, script=None):
+    def next_block(self, number, spend=None, additional_coinbase_value=0, script=None, block_size=0):
         if self.tip == None:
             base_block_hash = self.genesis_hash
         else:
@@ -74,6 +75,7 @@ class FullBlockTest(ComparisonTestFramework):
             coinbase.vout[0].nValue += spend.tx.vout[spend.n].nValue - 1 # all but one satoshi to fees
         coinbase.rehash()
         block = create_block(base_block_hash, coinbase, self.block_time)
+        spendable_output = None
         if (spend != None):
             tx = CTransaction()
             tx.vin.append(CTxIn(COutPoint(spend.tx.sha256, spend.n), b"", 0xffffffff))  # no signature yet
@@ -85,6 +87,8 @@ class FullBlockTest(ComparisonTestFramework):
                 tx.vout.append(CTxOut(1, CScript([OP_TRUE])))
             else:
                 tx.vout.append(CTxOut(1, script))
+            spendable_output = PreviousSpendableOutput(tx, 0)
+
             # Now sign it if necessary
             scriptSig = b""
             scriptPubKey = bytearray(spend.tx.vout[spend.n].scriptPubKey)
@@ -97,6 +101,21 @@ class FullBlockTest(ComparisonTestFramework):
             tx.vin[0].scriptSig = scriptSig
             # Now add the transaction to the block
             block = self.add_transactions_to_block(block, [tx])
+        if spendable_output != None and block_size > 0:
+            while len(block.serialize()) < block_size:
+                tx = CTransaction()
+                script_length = block_size - len(block.serialize()) - 79
+                if script_length > 510000:
+                    script_length = 500000
+                script_output = CScript([b'\x00' * script_length])
+                tx.vout.append(CTxOut(0, CScript([OP_TRUE])))
+                tx.vout.append(CTxOut(0, script_output))
+                tx.vin.append(CTxIn(COutPoint(spendable_output.tx.sha256, spendable_output.n)))
+                spendable_output = PreviousSpendableOutput(tx, 0)
+                block = self.add_transactions_to_block(block, [tx])
+            # Make sure the math above worked out to produce the correct block size
+            # (the math will fail if there are too many transactions in the block)
+            assert_equal(len(block.serialize()), block_size)
         block.solve()
         self.tip = block
         self.block_heights[block.sha256] = height
@@ -269,13 +288,13 @@ class FullBlockTest(ComparisonTestFramework):
 
         yield TestInstance([[b12, True, b13.sha256]]) # New tip should be b13.
 
-        # Add a block with MAX_BLOCK_SIGOPS and one with one more sigop
+        # Add a block with MAX_BLOCK_SIGOPS_PER_MB and one with one more sigop
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
         #                                          \-> b12 (3) -> b13 (4) -> b15 (5) -> b16 (6)
         #                      \-> b3 (1) -> b4 (2)
         
         # Test that a block with a lot of checksigs is okay
-        lots_of_checksigs = CScript([OP_CHECKSIG] * (1000000 // 50 - 1))
+        lots_of_checksigs = CScript([OP_CHECKSIG] * (MAX_BLOCK_SIGOPS_PER_MB - 1))
         tip(13)
         block(15, spend=out5, script=lots_of_checksigs)
         yield accepted()
@@ -283,7 +302,7 @@ class FullBlockTest(ComparisonTestFramework):
 
         # Test that a block with too many checksigs is rejected
         out6 = get_spendable_output()
-        too_many_checksigs = CScript([OP_CHECKSIG] * (1000000 // 50))
+        too_many_checksigs = CScript([OP_CHECKSIG] * MAX_BLOCK_SIGOPS_PER_MB)
         block(16, spend=out6, script=too_many_checksigs)
         yield rejected(RejectResult(16, b'bad-blk-sigops'))
 
@@ -335,27 +354,13 @@ class FullBlockTest(ComparisonTestFramework):
         #                                                                           \-> b24 (6) -> b25 (7)
         #                      \-> b3 (1) -> b4 (2)
         tip(15)
-        b23 = block(23, spend=out6)
-        old_hash = b23.sha256
-        tx = CTransaction()
-        script_length = MAX_BLOCK_SIZE - len(b23.serialize()) - 69
-        script_output = CScript([b'\x00' * script_length])
-        tx.vout.append(CTxOut(0, script_output))
-        tx.vin.append(CTxIn(COutPoint(b23.vtx[1].sha256, 1)))
-        b23 = update_block(23, [tx])
-        # Make sure the math above worked out to produce a max-sized block
-        assert_equal(len(b23.serialize()), MAX_BLOCK_SIZE)
+        block(23, spend=out6, block_size=MAX_BLOCK_SIZE)
         yield accepted()
 
         # Make the next block one byte bigger and check that it fails
         tip(15)
-        b24 = block(24, spend=out6)
-        script_length = MAX_BLOCK_SIZE - len(b24.serialize()) - 69
-        script_output = CScript([b'\x00' * (script_length+1)])
-        tx.vout = [CTxOut(0, script_output)]
-        b24 = update_block(24, [tx])
-        assert_equal(len(b24.serialize()), MAX_BLOCK_SIZE+1)
-        yield rejected()
+        block(24, spend=out6, block_size=MAX_BLOCK_SIZE+1)
+        yield rejected(RejectResult(19, b'bad-blk-length'))
 
         b25 = block(25, spend=out7)
         yield rejected()
@@ -401,6 +406,19 @@ class FullBlockTest(ComparisonTestFramework):
         b30 = update_block(30, [])
         yield accepted()
 
+        # Add a block with double MAX_BLOCK_SIGOPS_PER_MB sigops to a 1.5 MB block
+        lots_of_checksigs = CScript([OP_CHECKSIG] * (MAX_BLOCK_SIGOPS_PER_MB * 2 - 1))
+        block(31, spend=get_spendable_output(), script=lots_of_checksigs, block_size=1500000)
+        yield accepted()
+
+        # Add a block with double MAX_BLOCK_SIGOPS_PER_MB sigops to a 2 MB block
+        block(32, spend=get_spendable_output(), script=lots_of_checksigs, block_size=MAX_BLOCK_SIZE)
+        yield accepted()
+
+        # Make the next block have one additional sigop, and ensure it is rejected
+        too_many_checksigs = CScript([OP_CHECKSIG] * (MAX_BLOCK_SIGOPS_PER_MB * 2))
+        block(33, spend=get_spendable_output(), script=too_many_checksigs, block_size=MAX_BLOCK_SIZE)
+        yield rejected(RejectResult(16, b'bad-blk-sigops'))
 
 if __name__ == '__main__':
     FullBlockTest().main()
