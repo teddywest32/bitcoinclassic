@@ -144,7 +144,8 @@ CBlockTemplate* Mining::CreateNewBlock(const CChainParams& chainparams) const
 
     std::priority_queue<CTxMemPool::txiter, std::vector<CTxMemPool::txiter>, ScoreCompare> clearedTxs;
     bool fPrintPriority = GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
-    uint64_t nBlockSize = 1000;
+    const uint32_t nCoinbaseReserveSize = 1000;
+    uint64_t nBlockSize = nCoinbaseReserveSize;
     uint64_t nBlockTx = 0;
     unsigned int nBlockSigOps = 100;
     int lastFewTxs = 0;
@@ -251,9 +252,10 @@ CBlockTemplate* Mining::CreateNewBlock(const CChainParams& chainparams) const
             if (!IsFinalTx(tx, nHeight, nLockTimeCutoff))
                 continue;
 
+            const uint64_t maxSigOps = Policy::blockSigOpAcceptLimit(nBlockSize + nTxSize - nCoinbaseReserveSize);
             unsigned int nTxSigOps = iter->GetSigOpCount();
-            if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS) {
-                if (nBlockSigOps > MAX_BLOCK_SIGOPS - 2) {
+            if (nBlockSigOps + nTxSigOps >= maxSigOps) {
+                if (nBlockSigOps > maxSigOps - 2) {
                     break;
                 }
                 continue;
