@@ -19,6 +19,7 @@ struct CDiskTxPos;
 struct CDiskBlockPos;
 class CChainParams;
 class uint256;
+class CChain;
 
 //! -dbcache default (MiB)
 static const int64_t nDefaultDbCache = 300;
@@ -28,6 +29,8 @@ static const int64_t nMaxDbCache = sizeof(void*) > 4 ? 16384 : 1024;
 static const int64_t nMinDbCache = 4;
 
 namespace Blocks {
+
+class DBPrivate;
 
 /** Access to the block database (blocks/index/) */
 class DB : public CDBWrapper
@@ -48,12 +51,19 @@ public:
     /// Deletes old singleton and creates a new one for unit testing.
     static void createTestInstance(size_t nCacheSize);
 
+    /**
+     * @brief starts the blockImporter part of a 'reindex'.
+     * This kicks off a new thread that reads each file and schedules each block for
+     * validation.
+     */
     static void startBlockImporter();
 
-private:
+    virtual ~DB();
+
+protected:
     DB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
-    DB(const Blocks::DB&);
-    void operator=(const DB&);
+    DB(const Blocks::DB&) = delete;
+    void operator=(const DB&) = delete;
 public:
     bool WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo);
     bool ReadBlockFileInfo(int nFile, CBlockFileInfo &fileinfo);
@@ -65,15 +75,25 @@ public:
     /// Reads and caches all info about blocks.
     bool CacheAllBlockInfos();
 
-    inline bool isReindexing() const {
-        return m_isReindexing;
-    }
+    bool isReindexing() const;
     bool setIsReindexing(bool fReindex);
 
+    /**
+     * @brief make the blocks-DB aware of a new header-only tip.
+     * Add the parially validated block to the blocks database and import all parent
+     * blocks at the same time.
+     * This potentially updates the headerChain() and headerChainTips().
+     * @param block the index to the block object.
+     * @returns true if the header became the new main-chain tip.
+     */
+    bool appendHeader(CBlockIndex *block);
+
+    const CChain &headerChain();
+    const std::list<CBlockIndex*> & headerChainTips();
 
 private:
     static DB *s_instance;
-    bool m_isReindexing;
+    DBPrivate* d;
 };
 
 struct BlockHashShortener {

@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "BlocksDB.h"
+#include "BlocksDB_p.h"
 #include "chainparams.h"
 #include "consensus/validation.h"
 #include "Application.h"
@@ -258,9 +259,15 @@ void Blocks::DB::startBlockImporter()
 
 
 Blocks::DB::DB(size_t nCacheSize, bool fMemory, bool fWipe)
-    : CDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe)
+    : CDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe),
+      d(new DBPrivate())
 {
-    m_isReindexing = Exists(DB_REINDEX_FLAG);
+    d->isReindexing = Exists(DB_REINDEX_FLAG);
+}
+
+Blocks::DB::~DB()
+{
+    delete d;
 }
 
 bool Blocks::DB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) {
@@ -268,9 +275,9 @@ bool Blocks::DB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) {
 }
 
 bool Blocks::DB::setIsReindexing(bool fReindexing) {
-    if (m_isReindexing == fReindexing)
+    if (d->isReindexing == fReindexing)
         return true;
-    m_isReindexing = fReindexing;
+    d->isReindexing = fReindexing;
     if (fReindexing)
         return Write(DB_REINDEX_FLAG, '1');
     else
@@ -321,6 +328,7 @@ bool Blocks::DB::CacheAllBlockInfos()
     boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
 
     pcursor->Seek(std::make_pair(DB_BLOCK_INDEX, uint256()));
+    int maxFile = 0;
 
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
@@ -333,6 +341,7 @@ bool Blocks::DB::CacheAllBlockInfos()
                 pindexNew->pprev          = InsertBlockIndex(diskindex.hashPrev);
                 pindexNew->nHeight        = diskindex.nHeight;
                 pindexNew->nFile          = diskindex.nFile;
+                maxFile = std::max(pindexNew->nFile, maxFile);
                 pindexNew->nDataPos       = diskindex.nDataPos;
                 pindexNew->nUndoPos       = diskindex.nUndoPos;
                 pindexNew->nVersion       = diskindex.nVersion;
@@ -345,15 +354,98 @@ bool Blocks::DB::CacheAllBlockInfos()
 
                 pcursor->Next();
             } else {
-                return error("LoadBlockIndex() : failed to read value");
+                return error("CacheAllBlockInfos(): failed to read row");
             }
         } else {
             break;
         }
     }
 
+    for (auto iter = Blocks::indexMap.begin(); iter != Blocks::indexMap.end(); ++iter) {
+        appendHeader(iter->second);
+    }
+
     return true;
 }
+
+bool Blocks::DB::isReindexing() const
+{
+    return d->isReindexing;
+}
+
+bool Blocks::DB::appendHeader(CBlockIndex *block)
+{
+    assert(block);
+    assert(block->phashBlock);
+    bool found = false;
+    const bool valid = (block->nStatus & BLOCK_FAILED_MASK) == 0;
+    assert(valid || block->pprev);  // can't mark the genesis as invalid.
+    for (auto i = d->headerChainTips.begin(); i != d->headerChainTips.end(); ++i) {
+        CBlockIndex *tip = *i;
+        CBlockIndex *parent = block;
+        while (parent && parent->nHeight > tip->nHeight) {
+            parent = parent->pprev;
+        }
+        if (parent == tip) {
+            if (!valid)
+                block = block->pprev;
+            d->headerChainTips.erase(i);
+            d->headerChainTips.push_back(block);
+            if (tip == d->headersChain.Tip()) {
+                d->headersChain.SetTip(block);
+                pindexBestHeader = block;
+                return true;
+            }
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        for (auto i = d->headerChainTips.begin(); i != d->headerChainTips.end(); ++i) {
+            if ((*i)->GetAncestor(block->nHeight) == block) { // known in this chain.
+                if (valid)
+                    return false;
+                // if it is invalid, remove it and all children.
+                const bool modifyingMainChain = d->headersChain.Contains(*i);
+                d->headerChainTips.erase(i);
+                block = block->pprev;
+                d->headerChainTips.push_back(block);
+                if (modifyingMainChain)
+                    d->headersChain.SetTip(block);
+                return modifyingMainChain;
+            }
+        }
+        if (valid) {
+            d->headerChainTips.push_back(block);
+            if (d->headersChain.Height() == -1) { // add genesis
+                d->headersChain.SetTip(block);
+                pindexBestHeader = block;
+                return true;
+            }
+        }
+    }
+    if (d->headersChain.Tip()->nChainWork < block->nChainWork) {
+        // we changed what is to be considered the main-chain. Update the CChain instance.
+        d->headersChain.SetTip(block);
+        pindexBestHeader = block;
+        return true;
+    }
+    return false;
+}
+
+const CChain &Blocks::DB::headerChain()
+{
+    return d->headersChain;
+}
+
+const std::list<CBlockIndex *> &Blocks::DB::headerChainTips()
+{
+    return d->headerChainTips;
+}
+
+
+///////////////////////////////////////////////
 
 static FILE* OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly)
 {
@@ -391,3 +483,10 @@ boost::filesystem::path Blocks::getFilepathForIndex(int fileIndex, const char *p
     return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, fileIndex);
 }
 
+
+///////////////////////////////////////////////
+
+Blocks::DBPrivate::DBPrivate()
+    : isReindexing(false)
+{
+}
