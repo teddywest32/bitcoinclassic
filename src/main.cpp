@@ -1512,8 +1512,9 @@ bool CScriptCheck::operator()() {
 int GetSpendHeight(const CCoinsViewCache& inputs)
 {
     LOCK(cs_main);
-    CBlockIndex* pindexPrev = Blocks::indexMap.find(inputs.GetBestBlock())->second;
-    return pindexPrev->nHeight + 1;
+    auto iter = Blocks::indexMap.find(inputs.GetBestBlock());
+    assert(iter != Blocks::indexMap.end());
+    return iter->second->nHeight + 1;
 }
 
 namespace Consensus {
