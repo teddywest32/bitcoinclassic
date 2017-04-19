@@ -1,5 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
+// Copyright (c) 2017 Peter Tschipper <peter.tschipper@gmailcom>
+// Copyright (c) 2017 Tom Zander <tomz@freedommail.ch>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -1041,6 +1043,13 @@ void ThreadSocketHandler()
                     if (pnode->fNetworkNode || pnode->fInbound)
                         pnode->Release();
                     vNodesDisconnected.push_back(pnode);
+
+                    if (pnode->nVersion != 0) {
+                        bool xthinCapable = pnode->nServices & NODE_XTHIN;
+                        CAddrInfo *info = addrman.Find(pnode->addr);
+                        if (info)
+                            info->setKnowsXThin(xthinCapable);
+                    }
                 }
             }
         }
@@ -1462,6 +1471,20 @@ void DumpAddresses()
 {
     int64_t nStart = GetTimeMillis();
 
+
+    {
+        LOCK(cs_vNodes);
+        for (CNode* pnode : vNodes) {
+            if (pnode->fDisconnect || pnode->nVersion == 0)
+                continue;
+            bool xthinCapable = pnode->nServices & NODE_XTHIN;
+            CAddrInfo *info = addrman.Find(pnode->addr);
+            if (info)
+                info->setKnowsXThin(xthinCapable);
+        }
+    }
+
+
     CAddrDB adb;
     adb.Write(addrman);
 
@@ -1519,16 +1542,62 @@ void ThreadOpenConnections()
         }
     }
 
+    const int maxOutBound = std::min(MAX_OUTBOUND_CONNECTIONS, nMaxConnections);
+    const int minXThinNodes = std::min(maxOutBound, (int) GetArg("-min-thin-peers", DEFAULT_MIN_THIN_PEERS));
     // Initiate network connections
     int64_t nStart = GetTime();
-    while (true)
-    {
+    int nDisconnects = 0;
+    while (true) {
         ProcessOneShot();
 
         MilliSleep(500);
 
-        CSemaphoreGrant grant(*semOutbound);
+        // Only connect out to one peer per network group (/16 for IPv4).
+        // Do this here so we don't have to mutex vNodes inside mapAddresses mutex.
+        // And also must do this before the semaphore grant so that we don't have to block
+        // if the grants are all taken and we want to disconnect a node in the event that
+        // we don't have enough connections to XTHIN capable nodes yet.
+        std::set<std::vector<unsigned char> > setConnected;
+        int nThinBlockCapable = 0;
+        {
+            CNode* ptemp = nullptr;
+            int autoConnectedOutboundNodes = 0;
+
+            LOCK(cs_vNodes);
+            for (CNode* pnode : vNodes) {
+                if (pnode->fDisconnect || pnode->nVersion == 0)
+                    continue;
+                if (pnode->fAutoOutbound) {
+                    setConnected.insert(pnode->addr.GetGroup());
+                    ++autoConnectedOutboundNodes;
+
+                    if (pnode->ThinBlockCapable())
+                        ++nThinBlockCapable;
+                    else if (!ptemp)
+                        ptemp = pnode;
+                }
+            }
+
+            // Disconnect a node that is not XTHIN capable if all outbound slots are full and we
+            // have not yet connected to enough XTHIN nodes.
+            if (ptemp && autoConnectedOutboundNodes >= maxOutBound && nThinBlockCapable < minXThinNodes && IsThinBlocksEnabled()) {
+                ptemp->fDisconnect = true;
+                nDisconnects++;
+                LogPrintf("Not enough thin-block capable peers (%d/%d), disconnecting `%s', id: %d (disconnect-count: %d)\n",
+                          nThinBlockCapable, minXThinNodes, ptemp->cleanSubVer.c_str(), ptemp->id, nDisconnects);
+            }
+        }
+
         boost::this_thread::interruption_point();
+
+        // The loop above may have skipped peers which have not yet disconnected or identified themselves,
+        // as such we should take the grant a little less serious in case we still are waiting to fill our
+        // slots and check counts again after a little timeout.
+        CSemaphoreGrant grant(*semOutbound, /* try_lock */ nThinBlockCapable < minXThinNodes);
+        if (!grant) {
+            MilliSleep(4500);
+            continue;
+        }
 
         // Add seed nodes if DNS seeds are all down (an infrastructure attack?).
         if (addrman.size() == 0 && (GetTime() - nStart > 60)) {
@@ -1544,20 +1613,6 @@ void ThreadOpenConnections()
         // Choose an address to connect to based on most recently seen
         //
         CAddress addrConnect;
-
-        // Only connect out to one peer per network group (/16 for IPv4).
-        // Do this here so we don't have to critsect vNodes inside mapAddresses critsect.
-        int nOutbound = 0;
-        set<vector<unsigned char> > setConnected;
-        {
-            LOCK(cs_vNodes);
-            BOOST_FOREACH(CNode* pnode, vNodes) {
-                if (!pnode->fInbound) {
-                    setConnected.insert(pnode->addr.GetGroup());
-                    nOutbound++;
-                }
-            }
-        }
 
         int64_t nANow = GetAdjustedTime();
 
@@ -1592,8 +1647,15 @@ void ThreadOpenConnections()
             break;
         }
 
-        if (addrConnect.IsValid())
+        if (addrConnect.IsValid()) {
             OpenNetworkConnection(addrConnect, &grant);
+            LOCK(cs_vNodes);
+            CNode* pnode = FindNode((CService)addrConnect);
+            // We need to use a separate outbound flag so as not to differentiate these outbound¬
+            // nodes with ones that were added using -addnode -connect-thinblock or -connect.
+            if (pnode)
+                pnode->fAutoOutbound = true;
+        }
     }
 }
 
@@ -2363,6 +2425,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     fClient = false; // set by version message
     fInbound = fInboundIn;
     fNetworkNode = false;
+    fAutoOutbound = false;
     fSuccessfullyConnected = false;
     fDisconnect = false;
     nRefCount = 0;
@@ -2605,14 +2668,14 @@ bool CBanDB::Read(banmap_t& banSet)
         // ... verify the network matches ours
         if (memcmp(pchMsgTmp, Params().MessageStart(), sizeof(pchMsgTmp)))
             return error("%s: Invalid network magic number", __func__);
-        
+
         // de-serialize address data into one CAddrMan object
         ssBanlist >> banSet;
     }
     catch (const std::exception& e) {
         return error("%s: Deserialize or I/O error - %s", __func__, e.what());
     }
-    
+
     return true;
 }
 

@@ -78,6 +78,9 @@ static const size_t DEFAULT_MAXSENDBUFFER    = 1 * 1000;
 // NOTE: When adjusting this, update rpcnet:setban's help ("24h")
 static const unsigned int DEFAULT_MISBEHAVING_BANTIME = 60 * 60 * 24;  // Default 24-hour ban
 
+/** The default minimum number of thin nodes to connect to */
+static const int DEFAULT_MIN_THIN_PEERS = 3;
+
 unsigned int ReceiveFloodSize();
 unsigned int SendBufferSize();
 
@@ -348,7 +351,8 @@ public:
     bool fOneShot;
     bool fClient;
     bool fInbound;
-    bool fNetworkNode;
+    bool fAutoOutbound; // any outbound node not connected with -addnode, connect-thinblock or -connect
+    bool fNetworkNode; // any outbound node
     bool fSuccessfullyConnected;
     bool fDisconnect;
     // We use fRelayTxes for two purposes -

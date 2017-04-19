@@ -1,4 +1,5 @@
 // Copyright (c) 2017 Stephen McCarthy
+// Copyright (c) 2017 Tom Zander <tomz@freedommail.ch>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -259,6 +260,7 @@ static void addConnectionOptions(AllowedArgs& allowedArgs)
         .addArg("listen", optionalBool, _("Accept connections from outside (default: 1 if no -proxy or -connect)"))
         .addArg("listenonion", optionalBool, strprintf(_("Automatically create Tor hidden service (default: %d)"), DEFAULT_LISTEN_ONION))
         .addArg("maxconnections=<n>", optionalInt, strprintf(_("Maintain at most <n> connections to peers (default: %u)"), DEFAULT_MAX_PEER_CONNECTIONS))
+        .addArg("min-thin-peers=<n>", requiredInt, strprintf(_("Maintain at minimum <n> connections to thin-capable peers (default: %d)"), DEFAULT_MIN_THIN_PEERS))
         .addArg("maxreceivebuffer=<n>", requiredInt, strprintf(_("Maximum per-connection receive buffer, <n>*1000 bytes (default: %u)"), DEFAULT_MAXRECEIVEBUFFER))
         .addArg("maxsendbuffer=<n>", requiredInt, strprintf(_("Maximum per-connection send buffer, <n>*1000 bytes (default: %u)"), DEFAULT_MAXSENDBUFFER))
         .addArg("onion=<ip:port>", requiredStr, strprintf(_("Use separate SOCKS5 proxy to reach peers via Tor hidden services (default: %s)"), "-proxy"))

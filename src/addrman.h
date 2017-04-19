@@ -1,5 +1,6 @@
 // Copyright (c) 2012 Pieter Wuille
 // Copyright (c) 2012-2015 The Bitcoin Core developers
+// Copyright (c) 2017 Tom Zander <tomz@freedommail.ch>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -42,11 +43,13 @@ private:
     //! reference count in new sets (memory only)
     int nRefCount;
 
-    //! in tried set? (memory only)
-    bool fInTried;
-
     //! position in vRandom
     int nRandomPos;
+
+    //! in tried set? (memory only)
+    bool fInTried;
+    //! remote node knew xthin last time we connected (memory only)
+    bool fKnowsXThin;
 
     friend class CAddrMan;
 
@@ -69,7 +72,12 @@ public:
         nAttempts = 0;
         nRefCount = 0;
         fInTried = false;
+        fKnowsXThin = false;
         nRandomPos = -1;
+    }
+
+    std::string toString() const {
+        return source.ToString();
     }
 
     CAddrInfo(const CAddress &addrIn, const CNetAddr &addrSource) : CAddress(addrIn), source(addrSource)
@@ -103,6 +111,8 @@ public:
     //! Calculate the relative chance this entry should be given when selecting nodes to connect to
     double GetChance(int64_t nNow = GetAdjustedTime()) const;
 
+    bool getKnowsXThin() const;
+    void setKnowsXThin(bool value);
 };
 
 /** Stochastic address manager
@@ -206,7 +216,7 @@ private:
 protected:
 
     //! Find an entry.
-    CAddrInfo* Find(const CNetAddr& addr, int *pnId = NULL);
+    CAddrInfo* Find_(const CNetAddr& addr, int *pnId = NULL);
 
     //! find an entry, creating it if necessary.
     //! nTime and nServices of the found node are updated, if necessary.
@@ -216,7 +226,7 @@ protected:
     void SwapRandom(unsigned int nRandomPos1, unsigned int nRandomPos2);
 
     //! Move an entry from the "new" table(s) to the "tried" table
-    void MakeTried(CAddrInfo& info, int nId);
+    void MarkTried(CAddrInfo& info, int nId);
 
     //! Delete an entry. It must not be in tried, and have refcount 0.
     void Delete(int nId);
@@ -282,7 +292,7 @@ public:
     {
         LOCK(cs);
 
-        unsigned char nVersion = 1;
+        unsigned char nVersion = 2;
         s << nVersion;
         s << ((unsigned char)32);
         s << nKey;
@@ -293,7 +303,7 @@ public:
         s << nUBuckets;
         std::map<int, int> mapUnkIds;
         int nIds = 0;
-        for (std::map<int, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); it++) {
+        for (std::map<int, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); ++it) {
             mapUnkIds[(*it).first] = nIds;
             const CAddrInfo &info = (*it).second;
             if (info.nRefCount) {
@@ -303,11 +313,14 @@ public:
             }
         }
         nIds = 0;
-        for (std::map<int, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); it++) {
+        std::set<int> xthinNodes;
+        for (std::map<int, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); ++it) {
             const CAddrInfo &info = (*it).second;
             if (info.fInTried) {
                 assert(nIds != nTried); // this means nTried was wrong, oh ow
                 s << info;
+                if (info.getKnowsXThin())
+                    xthinNodes.insert(nIds);
                 nIds++;
             }
         }
@@ -324,6 +337,12 @@ public:
                     s << nIndex;
                 }
             }
+        }
+
+        // Save the index in 'new' nodes which had the flag to indicate it is xthin capable
+        s << (int) xthinNodes.size();
+        for (int id : xthinNodes) {
+            s << id;
         }
     }
 
@@ -344,9 +363,7 @@ public:
         s >> nTried;
         int nUBuckets = 0;
         s >> nUBuckets;
-        if (nVersion != 0) {
-            nUBuckets ^= (1 << 30);
-        }
+        nUBuckets ^= (1 << 30);
 
         // Deserialize entries from the new table.
         for (int n = 0; n < nNew; n++) {
@@ -404,6 +421,28 @@ public:
                         vvNew[bucket][nUBucketPos] = nIndex;
                     }
                 }
+            }
+        }
+
+        if (nVersion > 1) {
+            try {
+                int priorityAddressCount = 0;
+                s >> priorityAddressCount;
+                for (int n = 0; n < priorityAddressCount; ++n) {
+                    int index;
+                    s >> index;
+                    index += nNew;
+                    auto info = mapInfo.find(index);
+                    if (info != mapInfo.end()) {
+                        info->second.setKnowsXThin(true);
+                    } else {
+                        LogPrintf("CAddMan: Warning, loading priority address out of range; %d\n", index);
+                    }
+                }
+            } catch (std::runtime_error &e) {
+                // while we are pretty sure that input files hold this data, other clients may decide differently.
+                // expect nothing, be ready for everything.
+                LogPrintf("CAddMan: Reading xthin nodes data from peers.dat failed with: %s\n", e.what());
             }
         }
 
@@ -576,6 +615,7 @@ public:
         nKey.SetNull(); //Do not use outside of tests.
     }
 
+    CAddrInfo* Find(const CNetAddr& addr);
 };
 
 #endif // BITCOIN_ADDRMAN_H

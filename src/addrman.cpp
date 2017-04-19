@@ -1,5 +1,6 @@
 // Copyright (c) 2012 Pieter Wuille
 // Copyright (c) 2012-2015 The Bitcoin Core developers
+// Copyright (c) 2017 Tom Zander <tomz@freedommail.ch>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,6 +9,16 @@
 #include "hash.h"
 #include "serialize.h"
 #include "streams.h"
+
+bool CAddrInfo::getKnowsXThin() const
+{
+    return fKnowsXThin;
+}
+
+void CAddrInfo::setKnowsXThin(bool value)
+{
+    fKnowsXThin = value;
+}
 
 int CAddrInfo::GetTriedBucket(const uint256& nKey) const
 {
@@ -69,10 +80,20 @@ double CAddrInfo::GetChance(int64_t nNow) const
     // deprioritize 66% after each failed attempt, but at most 1/28th to avoid the search taking forever or overly penalizing outages.
     fChance *= pow(0.66, std::min(nAttempts, 8));
 
+    if (fKnowsXThin)
+        fChance *= 1.5;
+
     return fChance;
 }
 
-CAddrInfo* CAddrMan::Find(const CNetAddr& addr, int* pnId)
+
+CAddrInfo *CAddrMan::Find(const CNetAddr &addr)
+{
+    LOCK(cs);
+    return Find_(addr);
+}
+
+CAddrInfo* CAddrMan::Find_(const CNetAddr& addr, int* pnId)
 {
     std::map<CNetAddr, int>::iterator it = mapAddr.find(addr);
     if (it == mapAddr.end())
@@ -146,7 +167,7 @@ void CAddrMan::ClearNew(int nUBucket, int nUBucketPos)
     }
 }
 
-void CAddrMan::MakeTried(CAddrInfo& info, int nId)
+void CAddrMan::MarkTried(CAddrInfo& info, int nId)
 {
     // remove the entry from all new buckets
     for (int bucket = 0; bucket < ADDRMAN_NEW_BUCKET_COUNT; bucket++) {
@@ -197,7 +218,7 @@ void CAddrMan::MakeTried(CAddrInfo& info, int nId)
 void CAddrMan::Good_(const CService& addr, int64_t nTime)
 {
     int nId;
-    CAddrInfo* pinfo = Find(addr, &nId);
+    CAddrInfo* pinfo = Find_(addr, &nId);
 
     // if not found, bail out
     if (!pinfo)
@@ -240,7 +261,7 @@ void CAddrMan::Good_(const CService& addr, int64_t nTime)
     LogPrint("addrman", "Moving %s to tried\n", addr.ToString());
 
     // move nId to the tried tables
-    MakeTried(info, nId);
+    MarkTried(info, nId);
 }
 
 bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimePenalty)
@@ -250,7 +271,7 @@ bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimeP
 
     bool fNew = false;
     int nId;
-    CAddrInfo* pinfo = Find(addr, &nId);
+    CAddrInfo* pinfo = Find_(addr, &nId);
 
     if (pinfo) {
         // periodically update nTime
@@ -313,7 +334,7 @@ bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimeP
 
 void CAddrMan::Attempt_(const CService& addr, int64_t nTime)
 {
-    CAddrInfo* pinfo = Find(addr);
+    CAddrInfo* pinfo = Find_(addr);
 
     // if not found, bail out
     if (!pinfo)
@@ -478,7 +499,7 @@ void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr)
 
 void CAddrMan::Connected_(const CService& addr, int64_t nTime)
 {
-    CAddrInfo* pinfo = Find(addr);
+    CAddrInfo* pinfo = Find_(addr);
 
     // if not found, bail out
     if (!pinfo)

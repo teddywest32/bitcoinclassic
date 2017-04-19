@@ -176,5 +176,57 @@ BOOST_AUTO_TEST_CASE(addrman_tried_collisions)
     BOOST_CHECK(addrman.size() == 75);
 }
 
+BOOST_AUTO_TEST_CASE(addrman_serialization)
+{
+    std::vector<char> data;
+    {// save
+        CAddrManTest addrman;
+
+        // Set addrman addr placement to be deterministic.
+        addrman.MakeDeterministic();
+
+        CNetAddr source = CNetAddr("252.2.2.2:8333");
+
+        for (unsigned int i = 1; i < 75; ++i) {
+            CService addr = CService("250.1.1."+boost::to_string(i));
+            bool ok = addrman.Add(CAddress(addr), source);
+            BOOST_CHECK(ok);
+            addrman.Good(CAddress(addr));
+            if (i == 23 || i == 67) {
+                struct in_addr pipv4Addr;
+                addr.GetInAddr(&pipv4Addr);
+                CAddrInfo *info = addrman.Find(CNetAddr(pipv4Addr));
+                BOOST_CHECK(info);
+                info->setKnowsXThin(true);
+            }
+            //Test 13: No collision in tried table yet.
+            // BOOST_TEST_MESSAGE(addrman.size());
+            BOOST_CHECK(addrman.size() == i);
+        }
+        BOOST_CHECK_EQUAL(addrman.size(), 74);
+        CDataStream ssPeers(SER_DISK, CLIENT_VERSION);
+        // ssPeers << FLATDATA(Params().MessageStart());
+        ssPeers << addrman;
+        data = std::vector<char>(ssPeers.begin(), ssPeers.end());
+    }
+
+    { // load
+        CAddrManTest addrman;
+        CDataStream ssPeers(data, SER_DISK, CLIENT_VERSION);
+        ssPeers >> addrman;
+
+        BOOST_CHECK_EQUAL(addrman.size(), 74);
+        CNetAddr addr1("250.1.1.23");
+        CNetAddr addr2("250.1.1.67");
+        CNetAddr addr3("250.1.1.2");
+        BOOST_CHECK(addrman.Find(addr1));
+        BOOST_CHECK_EQUAL(addrman.Find(addr1)->getKnowsXThin(), true);
+        BOOST_CHECK(addrman.Find(addr2));
+        BOOST_CHECK_EQUAL(addrman.Find(addr2)->getKnowsXThin(), true);
+        BOOST_CHECK(addrman.Find(addr3));
+        BOOST_CHECK_EQUAL(addrman.Find(addr3)->getKnowsXThin(), false);
+    }
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()
