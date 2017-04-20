@@ -308,6 +308,7 @@ void InitializeNode(NodeId nodeid, const CNode *pnode) {
 void FinalizeNode(NodeId nodeid) {
     LOCK(cs_main);
     CNodeState *state = State(nodeid);
+    assert(state);
 
     if (state->fSyncStarted)
         nSyncStarted--;
