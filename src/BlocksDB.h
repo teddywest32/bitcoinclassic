@@ -16,7 +16,7 @@
 class CBlockFileInfo;
 class CBlockIndex;
 struct CDiskTxPos;
-class CDiskBlockPos;
+struct CDiskBlockPos;
 class CChainParams;
 class uint256;
 

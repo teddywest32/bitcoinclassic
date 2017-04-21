@@ -102,7 +102,6 @@ private:
     const char *m_privData;
     int m_length;
     int m_position;
-    bool m_validTagFound;
     variant m_value;
     uint32_t m_tag;
 
