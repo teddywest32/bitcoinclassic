@@ -6,7 +6,7 @@
 #define BITCOIN_TEST_TRANSACTION_UTILS_H
 
 class CScript;
-class CMutableTransaction;
+struct CMutableTransaction;
 
 namespace TxUtils {
     void RandomScript(CScript &script);
