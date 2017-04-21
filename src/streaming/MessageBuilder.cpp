@@ -46,7 +46,7 @@ namespace {
 
 
     int write(char *data, uint32_t tag, Streaming::ValueType type) {
-        assert(type < 8);
+        // assert(type < 8); // clang complains about this like its impossible to pass in an incorrect into to an enum parameter... Oh, well.
         if (tag >= 31) { // use more than 1 byte
             uint8_t byte = type | 0xF8; // set the 'tag' to all 1s
             data[0] = byte;

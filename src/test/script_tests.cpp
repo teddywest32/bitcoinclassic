@@ -852,7 +852,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
 BOOST_AUTO_TEST_CASE(script_combineSigs)
 {
     // Test the CombineSignatures function
-    CAmount amount;
+    CAmount amount = 0;
     CBasicKeyStore keystore;
     vector<CKey> keys;
     vector<CPubKey> pubkeys;
