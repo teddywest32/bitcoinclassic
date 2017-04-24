@@ -1,3 +1,9 @@
+bitcoinclassic (1.2.4-trusty1) trusty; urgency=high
+
+  * Various bugfixes.
+
+ -- Tom Z <tomz@freedommail.ch>  Tue, 24 Apr 2017 11:00:00 +0100
+
 bitcoinclassic (1.2.3-trusty1) trusty; urgency=high
 
   * Fix a handful more problems in BUs code and make
