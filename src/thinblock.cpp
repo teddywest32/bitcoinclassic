@@ -15,6 +15,7 @@
 #include "txorphancache.h"
 #include "consensus/merkle.h"
 #include "consensus/validation.h"
+#include "policy/policy.h"
 
 #include <boost/foreach.hpp>
 #include <boost/thread.hpp>
@@ -90,6 +91,8 @@ bool CXThinBlock::process(CNode* pfrom)
     std::vector<uint256> orphansUsed;
     int missingCount = 0;
     int collisionCount = 0;
+    std::uint32_t blockSize = ::GetSerializeSize(pfrom->thinBlock, SER_NETWORK, PROTOCOL_VERSION);
+    const std::uint32_t blockSizeAcceptLimit = Policy::blockSizeAcceptLimit();
     {
         LOCK2(cs_main, mempool.cs);
         const bool isChainTip = (header.hashPrevBlock == chainActive.Tip()->GetBlockHash()) ? true : false;
@@ -125,14 +128,28 @@ bool CXThinBlock::process(CNode* pfrom)
                     ++collisionCount;
                 }
             }
-
-            pfrom->thinBlock.vtx.push_back(tx);
+            blockSize += tx.GetSerializeSize(0, 0);
+            if (blockSize <= blockSizeAcceptLimit)
+                pfrom->thinBlock.vtx.push_back(tx);
             if (tx.IsNull())
                 missingCount++;
         }
     }
 
     pfrom->thinBlockWaitingForTxns = missingCount; // TODO can that variable be removed from the CNode?
+
+    if (blockSize > blockSizeAcceptLimit) {
+        pfrom->thinBlockWaitingForTxns = -1;
+        pfrom->thinBlock.vtx.clear();
+        const float punishment = (blockSize - blockSizeAcceptLimit) / (float) blockSizeAcceptLimit;
+        const int score = 10 * punishment + 0.5;
+        LogPrintf("thinblock (partially) reconstructed is over accept limits; (%d > %d), Dropping block and punishing (%d) peer %d\n",
+                blockSize, blockSizeAcceptLimit, score, pfrom->id);
+        pfrom->mapThinBlocksInFlight.erase(pfrom->thinBlock.GetHash());
+        LOCK(cs_main);
+        Misbehaving(pfrom->id, score);
+        return false;
+    }
 
     if (missingCount == 0) {
         bool mutated;

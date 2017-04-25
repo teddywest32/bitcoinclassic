@@ -5198,7 +5198,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERLOAD)
     {
-        if (GetBoolArg("-peerbloomfilters", true)) {
+        if (!GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
             return false;
@@ -5224,7 +5224,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERADD)
     {
-        if (GetBoolArg("-peerbloomfilters", true)) {
+        if (!GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
             return false;
@@ -5250,7 +5250,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERCLEAR)
     {
-        if (GetBoolArg("-peerbloomfilters", true)) {
+        if (!GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
             return false;
