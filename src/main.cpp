@@ -5209,7 +5209,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             // Replace the truncated hash with the full hash value if it exists
             const uint256 *hash = mapPartialTxHash[cheapHash];
             CTransaction tx;
-            if (hash == nullptr || !hash->IsNull())
+            if (hash != nullptr && !hash->IsNull())
             {
                 bool inMemPool = mempool.lookup(*hash, tx);
                 bool inMissingTx = mapMissingTx.count(*hash) > 0;
@@ -5592,7 +5592,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERLOAD)
     {
-        if (GetBoolArg("-peerbloomfilters", true)) {
+        if (!GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
             return false;
@@ -5618,7 +5618,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERADD)
     {
-        if (GetBoolArg("-peerbloomfilters", true)) {
+        if (!GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
             return false;
@@ -5644,7 +5644,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == NetMsgType::FILTERCLEAR)
     {
-        if (GetBoolArg("-peerbloomfilters", true)) {
+        if (!GetBoolArg("-peerbloomfilters", true)) {
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
             return false;
