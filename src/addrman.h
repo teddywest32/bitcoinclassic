@@ -186,9 +186,6 @@ private:
     //! critical section to protect the inner data structures
     mutable CCriticalSection cs;
 
-    //! secret key to randomize bucket select with
-    uint256 nKey;
-
     //! last used nId
     int nIdCount;
 
@@ -214,6 +211,9 @@ private:
     int vvNew[ADDRMAN_NEW_BUCKET_COUNT][ADDRMAN_BUCKET_SIZE];
 
 protected:
+
+    //! secret key to randomize bucket select with
+    uint256 nKey;
 
     //! Find an entry.
     CAddrInfo* Find_(const CNetAddr& addr, int *pnId = NULL);
