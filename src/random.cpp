@@ -85,17 +85,26 @@ void RandAddSeedPerfmon()
 
 void GetRandBytes(unsigned char* buf, int num)
 {
+#ifdef USE_UNSAFE_RANDOM // use this if you want to test with valgrind
+    while (num > 0) {
+        unsigned long int rnd = random();
+        buf[--num] = rnd & 0xFF;
+    }
+#else
     if (RAND_bytes(buf, num) != 1) {
         LogPrintf("%s: OpenSSL RAND_bytes() failed with error: %s\n", __func__, ERR_error_string(ERR_get_error(), NULL));
         assert(false);
     }
+#endif
 }
 
 uint64_t GetRand(uint64_t nMax)
 {
     if (nMax == 0)
         return 0;
-
+#ifdef USE_UNSAFE_RANDOM // use this if you want to test with valgrind
+    return random() % nMax;
+#else
     // The range of the random source must be a multiple of the modulus
     // to give every possible output value an equal possibility
     uint64_t nRange = (std::numeric_limits<uint64_t>::max() / nMax) * nMax;
@@ -104,6 +113,7 @@ uint64_t GetRand(uint64_t nMax)
         GetRandBytes((unsigned char*)&nRand, sizeof(nRand));
     } while (nRand >= nRange);
     return (nRand % nMax);
+#endif
 }
 
 int GetRandInt(int nMax)
