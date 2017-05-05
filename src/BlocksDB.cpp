@@ -362,6 +362,9 @@ bool Blocks::DB::CacheAllBlockInfos()
     }
 
     for (auto iter = Blocks::indexMap.begin(); iter != Blocks::indexMap.end(); ++iter) {
+        iter->second->BuildSkip();
+    }
+    for (auto iter = Blocks::indexMap.begin(); iter != Blocks::indexMap.end(); ++iter) {
         appendHeader(iter->second);
     }
 
