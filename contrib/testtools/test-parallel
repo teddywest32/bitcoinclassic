@@ -21,6 +21,7 @@
 
 import cPickle
 import errno
+import getpass
 import gzip
 import json
 import multiprocessing
@@ -317,7 +318,7 @@ class TestTimes(object):
         if type(times) is not dict:
             return
         for ((test_binary, test_name), runtime) in times.items():
-            if (type(test_binary) is not str or type(test_name) is not str
+            if (type(test_binary) is not str or type(test_name) not in (str, unicode)
                     or type(runtime) not in {int, long, type(None)}):
                 return
 
@@ -358,11 +359,12 @@ parser = optparse.OptionParser(
 
 parser.add_option('-d', '--output_dir', type='string',
                   default=os.path.join(
-                      tempfile.gettempdir(), "gtest-parallel-bitcoin"),
+                      tempfile.gettempdir(), "gtest-parallel-bitcoin.%s" %
+                      getpass.getuser()),
                   help='output directory for test logs')
 parser.add_option('-r', '--repeat', type='int', default=1,
                   help='repeat tests')
-parser.add_option('--fail_empty_suites', action='store_true', default=False,
+parser.add_option('--fail_empty_suites', action='store_true', default=True,
                   help='fail empty test suites')
 parser.add_option('--failed', action='store_true', default=False,
                   help='run only failed and new tests')
@@ -426,7 +428,6 @@ for test_binary in binaries:
 
     list_command = list(command)
     list_command += ['--list_content']
-    # src/test/test_bitcoin --list_content 2>&1 | grep '^[a-zA-Z]' | sort
 
     try:
         proc = subprocess.Popen(list_command,
@@ -462,6 +463,9 @@ if options.failed:
     # run if it was successful, or None if the test is new or the most
     # recent run failed.
     tests = [x for x in tests if x[0] is None]
+    if not tests:
+        print("No new or failed tests.")
+        sys.exit(0)
 
 # Sort tests by falling runtime (with None, which is what we get for
 # new and failing tests, being considered larger than any real
@@ -564,3 +568,4 @@ if options.print_test_times:
 
 test_results.dump_to_file_and_close()
 sys.exit(-signal.SIGINT if sigint_handler.got_sigint() else exit_code)
+
