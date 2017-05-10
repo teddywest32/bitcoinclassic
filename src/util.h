@@ -18,6 +18,7 @@
 #include "compat.h"
 #include "tinyformat.h"
 #include "utiltime.h"
+#include "Logger.h"
 
 #include <exception>
 #include <map>
@@ -29,13 +30,10 @@
 #include <boost/signals2/signal.hpp>
 #include <boost/thread/exceptions.hpp>
 
-static const bool DEFAULT_LOGTIMEMICROS = false;
-static const bool DEFAULT_LOGIPS        = false;
-static const bool DEFAULT_LOGTIMESTAMPS = true;
-
 // For bitcoin-cli
 static const char DEFAULT_RPCCONNECT[] = "127.0.0.1";
 static const int DEFAULT_HTTP_CLIENT_TIMEOUT = 900;
+static const bool DEFAULT_LOGIPS        = false;
 
 /** Signals for translation. */
 class CTranslationInterface
@@ -47,15 +45,9 @@ public:
 
 extern std::map<std::string, std::string> mapArgs;
 extern std::map<std::string, std::vector<std::string> > mapMultiArgs;
-extern bool fDebug;
-extern bool fPrintToConsole;
-extern bool fPrintToDebugLog;
 extern bool fServer;
 extern std::string strMiscWarning;
-extern bool fLogTimestamps;
-extern bool fLogTimeMicros;
 extern bool fLogIPs;
-extern volatile bool fReopenDebugLog;
 extern CTranslationInterface translationInterface;
 
 extern const char * const BITCOIN_CONF_FILENAME;
@@ -74,12 +66,7 @@ inline std::string _(const char* psz)
 void SetupEnvironment();
 bool SetupNetworking();
 
-/** Return true if log accepts specified category */
-bool LogAcceptCategory(const char* category);
-/** Send a string to the log output */
-int LogPrintStr(const std::string &str);
-
-#define LogPrintf(...) LogPrint(NULL, __VA_ARGS__)
+#define LogPrintf(...) Log::MessageLogger(BTC_MESSAGELOG_FILE, BTC_MESSAGELOG_LINE, BTC_MESSAGELOG_FUNC).infoCompat(nullptr, __VA_ARGS__)
 
 /**
  * When we switch to C++11, this can be switched to variadic templates instead
@@ -87,18 +74,14 @@ int LogPrintStr(const std::string &str);
  */
 #define MAKE_ERROR_AND_LOG_FUNC(n)                                        \
     /**   Print to debug.log if -debug=category switch is given OR category is NULL. */ \
-    template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline int LogPrint(const char* category, const char* format, TINYFORMAT_VARARGS(n))  \
-    {                                                                         \
-        if(!LogAcceptCategory(category)) return 0;                            \
-        return LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
-    }                                                                         \
-    /**   Log error and return false */                                        \
-    template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline bool error(const char* format, TINYFORMAT_VARARGS(n))                     \
-    {                                                                         \
-        LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
-        return false;                                                         \
+    template<TINYFORMAT_ARGTYPES(n)> \
+    static inline void LogPrint(const char* category, const char* format, TINYFORMAT_VARARGS(n)) { \
+        Log::MessageLogger(nullptr, 0, nullptr).infoCompat(category, format, TINYFORMAT_PASSARGS(n)); \
+    } \
+    template<TINYFORMAT_ARGTYPES(n)> \
+    static inline bool error(const char* format, TINYFORMAT_VARARGS(n)) { \
+        Log::MessageLogger(nullptr, 0, nullptr).warning(0, format, TINYFORMAT_PASSARGS(n)); \
+        return false;\
     }
 
 TINYFORMAT_FOREACH_ARGNUM(MAKE_ERROR_AND_LOG_FUNC)
@@ -107,14 +90,14 @@ TINYFORMAT_FOREACH_ARGNUM(MAKE_ERROR_AND_LOG_FUNC)
  * Zero-arg versions of logging and error, these are not covered by
  * TINYFORMAT_FOREACH_ARGNUM
  */
-static inline int LogPrint(const char* category, const char* format)
+static inline void LogPrint(const char* category, const char* format)
 {
-    if(!LogAcceptCategory(category)) return 0;
-    return LogPrintStr(format);
+    Log::MessageLogger(nullptr, 0, nullptr).infoCompat(category, format);
 }
+
 static inline bool error(const char* format)
 {
-    LogPrintStr(std::string("ERROR: ") + format + "\n");
+    Log::MessageLogger(nullptr, 0, nullptr).warning() << "ERROR:" << format;
     return false;
 }
 
@@ -139,7 +122,6 @@ void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet, std::map
 boost::filesystem::path GetSpecialFolderPath(int nFolder, bool fCreate = true);
 #endif
 boost::filesystem::path GetTempPath();
-void OpenDebugLog();
 void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
 

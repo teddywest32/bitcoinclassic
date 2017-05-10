@@ -1,0 +1,85 @@
+/*
+ * This file is part of the bitcoin-classic project
+ * Copyright (C) 2017 Tom Zander <tomz@freedommail.ch>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#ifndef LOGCHANNELS_P_H
+#define LOGCHANNELS_P_H
+
+#include "Logger.h"
+
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+namespace Log {
+
+class Channel {
+public:
+    Channel(bool formatTimestamp) : m_formatTimestamp(formatTimestamp) {}
+    virtual ~Channel() {}
+
+    virtual void pushLog(int64_t timeMillis, const std::string &timestamp, const std::string &line, const char *filename,
+                         int lineNumber, const char *methodName, int logLevel) = 0;
+
+    virtual void reopenLogFiles() {}
+
+    inline bool formatTimestamp() const {
+        return m_formatTimestamp;
+    }
+protected:
+    bool m_formatTimestamp;
+};
+
+}
+
+class ConsoleLogChannel : public Log::Channel
+{
+public:
+    ConsoleLogChannel();
+
+    virtual void pushLog(int64_t timeMillis, const std::string &timestamp, const std::string &line, const char *filename,
+                         int lineNumber, const char *methodName, int logLevel);
+
+    bool printLineNumber() const;
+    void setPrintLineNumber(bool printLineNumber);
+
+    bool printMethodName() const;
+    void setPrintMethodName(bool printMethodName);
+
+    bool printFilename() const;
+    void setPrintFilename(bool printFilename);
+
+    void setFormatTimestamp(bool printTimestamp);
+
+private:
+    bool m_printLineNumber;
+    bool m_printMethodName;
+    bool m_printFilename;
+};
+
+class FileLogChannel : public Log::Channel
+{
+public:
+    FileLogChannel();
+    ~FileLogChannel();
+
+    virtual void pushLog(int64_t timeMillis, const std::string &timestamp, const std::string &line, const char *filename,
+                         int lineNumber, const char *methodName, int logLevel);
+    virtual void reopenLogFiles();
+
+private:
+    FILE *m_fileout;
+};
+
+#endif

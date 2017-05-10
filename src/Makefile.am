@@ -111,6 +111,8 @@ BITCOIN_CORE_H = \
   keystore.h \
   dbwrapper.h \
   limitedmap.h \
+  LogChannels_p.h \
+  Logger.h \
   main.h \
   memusage.h \
   merkleblock.h \
@@ -321,6 +323,8 @@ libbitcoin_util_a_SOURCES = \
   compat/glibc_sanity.cpp \
   compat/glibcxx_sanity.cpp \
   compat/strnlen.cpp \
+  LogChannels.cpp \
+  Logger.cpp \
   Message.cpp \
   random.cpp \
   rpcprotocol.cpp \

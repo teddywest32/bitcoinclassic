@@ -8,8 +8,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
 
-using namespace std;
-
 static int64_t nMockTime = 0;  //! For unit testing
 
 int64_t GetTime()
@@ -40,14 +38,6 @@ int64_t GetTimeMicros()
                    boost::posix_time::ptime(boost::gregorian::date(1970,1,1))).total_microseconds();
     assert(now > 0);
     return now;
-}
-
-/** Return a time useful for the debug log */
-int64_t GetLogTimeMicros()
-{
-    if (nMockTime) return nMockTime*1000000;
-
-    return GetTimeMicros();
 }
 
 void MilliSleep(int64_t n)

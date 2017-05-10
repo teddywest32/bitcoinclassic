@@ -184,11 +184,36 @@ AC_ARG_ENABLE([debug],
     [enable_debug=$enableval],
     [enable_debug=no])
 
+# Enable dev-setup
+AC_ARG_ENABLE([dev-setup],
+    [AS_HELP_STRING([--enable-dev-setup],
+                    [Compile using all the debugging features (default is no)])],
+    [enable_dev_setup=$enableval],
+    [enable_dev_setup=no])
+
+# Build a release
+AC_ARG_ENABLE([debug-messages],
+    [AS_HELP_STRING([--enable-debug-messages],
+                    [allow in build all low-level debug (default is yes)])],
+    [enable_debug_messages=$enableval],
+    [enable_debug_messages=yes])
+
 AC_LANG_PUSH([C++])
 AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 
+if test "x$enable_dev_setup" = xyes; then
+    enable_debug="yes"
+    enable_debug_messages=yes
+    #CPPFLAGS="$CPPFLAGS -DDEBUG_LOCKORDER"
+    CPPFLAGS="$CPPFLAGS -DBTC_LOGCONTEXT -DUSE_UNSAFE_RANDOM"
+fi
+
+if test "x$enable_debug_messages" != xyes; then
+    CPPFLAGS="$CPPFLAGS -DBTC_NO_DEBUG_OUTPUT"
+fi
+
 if test "x$enable_debug" = xyes; then
-    CPPFLAGS="$CPPFLAGS -DDEBUG -DDEBUG_LOCKORDER"
+    CPPFLAGS="$CPPFLAGS -DDEBUG"
     if test "x$GCC" = xyes; then
         CFLAGS="$CFLAGS -g3 -O0"
     fi

@@ -30,7 +30,6 @@
 CClientUIInterface uiInterface; // Declared but not defined in ui_interface.h
 CWallet* pwalletMain;
 
-extern bool fPrintToConsole;
 extern void noui_connect();
 
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
@@ -38,10 +37,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         ECC_Start();
         SetupEnvironment();
         SetupNetworking();
-        fPrintToDebugLog = false; // don't want to write to debug.log file
         mapArgs["checkblockindex"] = "1";
         SelectParams(chainName);
         noui_connect();
+    Log::Manager::instance()->loadDefaultTestSetup();
 }
 
 BasicTestingSetup::~BasicTestingSetup()
