@@ -5497,7 +5497,7 @@ bool SendMessages(CNode* pto)
         int64_t nNow = GetTimeMicros();
         if (!IsInitialBlockDownload() && pto->nNextLocalAddrSend < nNow) {
             AdvertiseLocal(pto);
-            pto->nNextLocalAddrSend = PoissonNextSend(nNow, AVG_LOCAL_ADDRESS_BROADCAST_INTERVAL);
+            pto->nNextLocalAddrSend = nNow + AVG_LOCAL_ADDRESS_BROADCAST_INTERVAL * 1000000 + rand() % 500000000;
         }
 
         //
