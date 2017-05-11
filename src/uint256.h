@@ -6,13 +6,16 @@
 #ifndef BITCOIN_UINT256_H
 #define BITCOIN_UINT256_H
 
+#include "crypto/common.h"
+#include "Logger.h"
+
 #include <assert.h>
 #include <cstring>
 #include <stdexcept>
 #include <stdint.h>
 #include <string>
 #include <vector>
-#include "crypto/common.h"
+
 
 /** Template base class for fixed-sized opaque blobs. */
 template<unsigned int BITS>
@@ -156,6 +159,18 @@ inline uint256 uint256S(const std::string& str)
     uint256 rv;
     rv.SetHex(str);
     return rv;
+}
+
+
+template<unsigned int BITS>
+inline Log::Item operator<<(Log::Item item, const base_blob<BITS> &data) {
+    if (item.isEnabled())
+        item.nospace() << data.ToString().c_str();
+    return item.space();
+}
+template<unsigned int BITS>
+inline Log::SilentItem operator<<(Log::SilentItem item, const base_blob<BITS> &data) {
+    return item;
 }
 
 #endif // BITCOIN_UINT256_H
