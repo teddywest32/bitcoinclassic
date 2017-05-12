@@ -27,13 +27,6 @@
 #include <util.h>
 
 // #define DEBUG_CONNECTIONS
-#ifdef DEBUG_CONNECTIONS
-# define CON_DEBUG LogPrint
-#else
-# define CON_DEBUG if (0) LogPrint
-#endif
-
-#define CON_WARNING LogPrint
 
 static const int RECEIVE_STREAM_SIZE = 41000;
 static const int CHUNK_SIZE = 8000;
@@ -115,7 +108,7 @@ void NetworkManager::bind(tcp::endpoint endpoint, const std::function<void(Netwo
         NetworkManagerServer *server = new NetworkManagerServer(d, endpoint, callback);
         d->servers.push_back(server);
     } catch (std::exception &ex) {
-        CON_WARNING("NWM", "Creating NetworkMangerServer failed with %s\n", ex.what());
+        logWarning(Log::NWM) << "Creating NetworkMangerServer failed with" << ex.what();
         throw std::runtime_error("Failed to bind to endpoint");
     }
 
@@ -156,7 +149,7 @@ void NetworkManagerPrivate::punishNode(int connectionId, int punishScore)
         BannedNode bn;
         bn.endPoint = con->second->endPoint();
         bn.banTimeout = boost::posix_time::second_clock::universal_time() + boost::posix_time::hours(24);
-        CON_WARNING("NWM", "Banned node for 24 hours due to excessive bad behavior %s\n", bn.endPoint.hostname.c_str());
+        logInfo(Log::NWM) << "Banned node for 24 hours due to excessive bad behavior" << bn.endPoint.hostname;
         banned.push_back(bn);
         connections.erase(connectionId);
         con->second->shutdown(con->second);
@@ -168,7 +161,7 @@ void NetworkManagerPrivate::cronHourly(const boost::system::error_code &error)
     if (error)
         return;
 
-    CON_DEBUG("NWM", "cronHourly\n");
+    logDebug(Log::NWM) << "cronHourly";
     boost::recursive_mutex::scoped_lock lock(mutex);
     if (isClosingDown)
         return;
@@ -184,7 +177,7 @@ void NetworkManagerPrivate::cronHourly(const boost::system::error_code &error)
     }
     for (auto connection : connections) {
         connection.second->m_punishment = std::max(0, connection.second->m_punishment - 100);
-        // CON_DEBUG("NWM", "peer ban scrore; %d'\n", connection.second->m_punishment);
+        // logDebug(Log::NWM) << "peer ban scrore;" << connection.second->m_punishment;
     }
     m_cronHourly.expires_from_now(boost::posix_time::hours(24));
     m_cronHourly.async_wait(std::bind(&NetworkManagerPrivate::cronHourly, this, std::placeholders::_1));
@@ -283,7 +276,7 @@ void NetworkManagerConnection::onAddressResolveComplete(const boost::system::err
     if (m_isClosingDown)
         return;
     if (error) {
-        CON_DEBUG("NWM", "connect; %s\n", error.message().c_str());
+        logDebug(Log::NWM) << "connect;" << error.message();
         m_reconnectDelay.expires_from_now(boost::posix_time::seconds(45));
         m_reconnectDelay.async_wait(m_strand.wrap(std::bind(&NetworkManagerConnection::reconnectWithCheck, this, std::placeholders::_1)));
         return;
@@ -303,20 +296,19 @@ void NetworkManagerConnection::onConnectComplete(const boost::system::error_code
     if (m_isClosingDown)
         return;
     if (error) {
-        CON_DEBUG("NWM", "connect; %s\n", error.message().c_str());
+        logDebug(Log::NWM) << "connect;" << error.message();
         if (m_remote.peerPort != m_remote.announcePort) // incoming connection
             return;
         m_reconnectDelay.expires_from_now(boost::posix_time::seconds(reconnectTimeoutForStep(++m_reconnectStep)));
         m_reconnectDelay.async_wait(m_strand.wrap(std::bind(&NetworkManagerConnection::reconnectWithCheck, this, std::placeholders::_1)));
         return;
     }
-    CON_DEBUG("NWM", "Successfully connected to %s:%d\n", m_remote.hostname.c_str(),
-        m_remote.announcePort);
+    logInfo(Log::NWM) << "Successfully connected to" << m_remote.hostname << m_remote.announcePort;
     for (auto it = m_onConnectedCallbacks.begin(); it != m_onConnectedCallbacks.end(); ++it) {
         try {
             it->second(m_remote);
         } catch (const std::exception &ex) {
-            CON_WARNING("NWM", "onConnected threw exception, ignoring: `%s\'\n", ex.what());
+            logWarning(Log::NWM) << "onConnected threw exception, ignoring:" << ex.what();
         }
     }
 
@@ -351,7 +343,7 @@ Streaming::ConstBuffer NetworkManagerConnection::createHeader(const Message &mes
     }
     builder.add(Network::HeaderEnd, true);
     builder.setMessageSize(m_sendHelperBuffer.size() + message.size());
-    CON_DEBUG("NWM", "createHeader of message of length; %d + %d\n", m_sendHelperBuffer.size(), message.size());
+    logDebug(Log::NWM) << "createHeader of message of length;" << m_sendHelperBuffer.size() << '+' << message.size();
     return builder.buffer();
 }
 
@@ -478,13 +470,13 @@ void NetworkManagerConnection::sentSomeBytes(const boost::system::error_code& er
     assert(m_strand.running_in_this_thread());
     m_sendingInProgress = false;
     if (error) {
-        CON_WARNING("NWM", "sent; %s\n", error.message().c_str());
+        logWarning(Log::NWM) << "sent error" << error.message();
         m_messageBytesSend = 0;
         m_messageBytesSent = 0;
         runOnStrand(std::bind(&NetworkManagerConnection::connect, this));
         return;
     }
-    CON_DEBUG("NWM", "Managed to send %i bytes\n", (int) bytes_transferred);
+    logDebug(Log::NWM) << "Managed to send" << bytes_transferred << "bytes";
 
     m_reconnectStep = 0;
     // now we remove any message data from our lists so the underlying malloced data can be freed
@@ -547,9 +539,9 @@ void NetworkManagerConnection::receivedSomeBytes(const boost::system::error_code
     if (m_isClosingDown)
         return;
     assert(m_strand.running_in_this_thread());
-    CON_DEBUG("NWM", "%p receivedSomeBytes %ld\n", ((void*)this), bytes_transferred);
+    logDebug(Log::NWM) << ((void*) this) << "receivedSomeBytes" << bytes_transferred;
     if (error) {
-        CON_DEBUG("NWM", "receivedSomeBytes errored: '%s`\n", error.message().c_str());
+        logDebug(Log::NWM) << "receivedSomeBytes errored:" << error.message();
         // first copy to avoid problems if a callback removes its callback or closes the connection.
         std::vector<std::function<void(const EndPoint&)> > callbacks;
         callbacks.reserve(m_onDisConnectedCallbacks.size());
@@ -561,7 +553,7 @@ void NetworkManagerConnection::receivedSomeBytes(const boost::system::error_code
             try {
                 callback(m_remote);
             } catch (const std::exception &ex) {
-                CON_WARNING("NWM", "onDisconnected caused exception, ignoring: `%s\'\n", ex.what());
+                logWarning(Log::NWM) << "onDisconnected caused exception, ignoring:" << ex;
             }
         }
         close();
@@ -579,7 +571,7 @@ void NetworkManagerConnection::receivedSomeBytes(const boost::system::error_code
         if (m_firstPacket) {
             m_firstPacket = false;
             if (data.begin()[2] != 8) { // Positive integer (0) and Network::ServiceId (1 << 3)
-                CON_WARNING("NWM", "receive; Data error from server - this is NOT an NWM server. Disconnecting\n");
+                logWarning(Log::NWM) << "receive; Data error from server - this is NOT an NWM server. Disconnecting";
                 close();
                 return;
             }
@@ -587,9 +579,9 @@ void NetworkManagerConnection::receivedSomeBytes(const boost::system::error_code
 
         const unsigned int rawHeader = *(reinterpret_cast<const unsigned int*>(data.begin()));
         const int packetLength = (rawHeader & 0xFFFF);
-        CON_DEBUG("NWM", "Processing incoming packet. Size %d\n", packetLength);
+        logDebug(Log::DebugLevel) << "Processing incoming packet. Size" << packetLength;
         if (packetLength > MAX_MESSAGE_SIZE) {
-            CON_WARNING("NWM", "receive; Data error from server- stream is corrupt\n");
+            logWarning(Log::NWM) << "receive; Data error from server- stream is corrupt";
             close();
             return;
         }
@@ -610,7 +602,7 @@ bool NetworkManagerConnection::processPacket(const std::shared_ptr<char> &buffer
     assert(m_strand.running_in_this_thread());
     const unsigned int rawHeader = *(reinterpret_cast<const unsigned int*>(data));
     const int packetLength = (rawHeader & 0xFFFF);
-    CON_DEBUG("NWM", "Receive packet length %d\n", packetLength);
+    logDebug(Log::NWM) << "Receive packet length" << packetLength;
 
     Streaming::MessageParser parser(const_cast<char*>(data + 2), packetLength - 2);
     Streaming::ParsedType type = parser.next();
@@ -665,7 +657,7 @@ bool NetworkManagerConnection::processPacket(const std::shared_ptr<char> &buffer
     }
 
     if (serviceId == -1) { // an obligatory field
-        CON_WARNING("NWM", "peer sent message without serviceId\n");
+        logWarning(Log::NWM) << "peer sent message without serviceId";
         close();
         return false;
     }
@@ -694,7 +686,7 @@ bool NetworkManagerConnection::processPacket(const std::shared_ptr<char> &buffer
     if (lastInSequence != -1) {
         if (sequenceSize != -1) {
             if (m_chunkedMessageId != -1 || m_chunkedServiceId != -1) { // Didn't finish another. Thats illegal.
-                CON_WARNING("NWM", "peer sent sequenced message with wrong combination of headers\n");
+                logWarning(Log::NWM) << "peer sent sequenced message with wrong combination of headers";
                 close();
                 return false;
             }
@@ -704,16 +696,17 @@ bool NetworkManagerConnection::processPacket(const std::shared_ptr<char> &buffer
         }
         else if (m_chunkedMessageId != messageId || m_chunkedServiceId != serviceId) { // Changed. Thats illegal.
             close();
-            CON_WARNING("NWM", "peer sent sequenced message with inconsistent service/messageId\n");
+            logWarning(Log::NWM) << "peer sent sequenced message with inconsistent service/messageId";
             return false;
         }
         const int bodyLength = packetLength - headerSize - 2;
         if (m_chunkedMessageBuffer.capacity() < bodyLength) {
-            CON_WARNING("NWM", "peer sent sequenced message with too much data\n");
+            logWarning(Log::NWM) << "peer sent sequenced message with too much data";
             return false;
         }
 
-        CON_DEBUG("NWM", "Message received as part of sequence; last: %d total-size: %d\n", lastInSequence, sequenceSize);
+        logDebug(Log::NWM) << "Message received as part of sequence; last:" << lastInSequence
+                 << "total-size:" << sequenceSize;
         std::copy(data + headerSize + 2, data + packetLength, m_chunkedMessageBuffer.data());
         m_chunkedMessageBuffer.markUsed(bodyLength);
         if (lastInSequence == 0)
@@ -742,7 +735,7 @@ bool NetworkManagerConnection::processPacket(const std::shared_ptr<char> &buffer
         try {
             callback(message);
         } catch (const std::exception &ex) {
-            CON_WARNING("NWM", "onIncomingMessage threw exception, ignoring: `%s\'", ex.what());
+            logWarning(Log::NWM) << "onIncomingMessage threw exception, ignoring:" << ex;
         }
         if (!m_socket.is_open())
             break;
@@ -771,21 +764,21 @@ void NetworkManagerConnection::addOnIncomingMessageCallback(int id, const std::f
 void NetworkManagerConnection::queueMessage(const Message &message, NetworkConnection::MessagePriority priority)
 {
     if (!message.hasHeader() && message.serviceId() == -1) {
-        CON_WARNING("NWM", "queueMessage: Can't deliver a message with unset service ID\n");
+        logWarning(Log::NWM) << "queueMessage: Can't deliver a message with unset service ID";
 #ifdef DEBUG_CONNECTIONS
         assert(false);
 #endif
         return;
     }
     if (message.hasHeader() && message.body().size() > CHUNK_SIZE) {
-        CON_WARNING("NWM", "queueMessage: Can't send large message and can't auto-chunk because it already has a header\n");
+        logWarning(Log::NWM) << "queueMessage: Can't send large message and can't auto-chunk because it already has a header";
 #ifdef DEBUG_CONNECTIONS
         assert(false);
 #endif
         return;
     }
     if (priority == NetworkConnection::HighPriority && message.rawData().size() > CHUNK_SIZE) {
-        CON_WARNING("NWM", "queueMessage: Can't send large message in the priority queue\n");
+        logWarning(Log::NWM) << "queueMessage: Can't send large message in the priority queue";
 #ifdef DEBUG_CONNECTIONS
         assert(false);
 #endif
@@ -843,7 +836,7 @@ void NetworkManagerConnection::sendPing(const boost::system::error_code& error)
 {
     if (error)
         return;
-    CON_DEBUG("NWM", "Ping\n");
+    logDebug(Log::NWM) << "ping";
 
     if (m_isClosingDown)
         return;
@@ -867,7 +860,7 @@ void NetworkManagerConnection::sendPing(const boost::system::error_code& error)
 void NetworkManagerConnection::pingTimeout(const boost::system::error_code &error)
 {
     if (!error) {
-        CON_WARNING("NWM", "Didn't receive a ping from peer for too long, disconnecting dead connection\n");
+        logWarning(Log::NWM) << "Didn't receive a ping from peer for too long, disconnecting dead connection";
         close(false);
     }
 }
@@ -960,7 +953,7 @@ void NetworkManagerServer::acceptConnection(boost::system::error_code error)
 {
     if (error.value() == boost::asio::error::operation_aborted)
         return;
-    CON_DEBUG("NWM", "acceptTcpConnection; %s\n", error.message().c_str());
+    logDebug(Log::NWM) << "acceptTcpConnection" << error.message();
     if (error) {
         setupCallback();
         return;
@@ -977,8 +970,8 @@ void NetworkManagerServer::acceptConnection(boost::system::error_code error)
     for (const BannedNode &bn : priv->banned) {
         if (bn.endPoint.ipAddress == peerAddress) {
             if (bn.banTimeout > boost::posix_time::second_clock::universal_time()) { // incoming connection is banned.
-                CON_DEBUG("NWM", "acceptTcpConnection; closing incoming connection (banned) %s\n",
-                          bn.endPoint.hostname.c_str());
+                logDebug(Log::NWM) << "acceptTcpConnection; closing incoming connection (banned)"
+                          << bn.endPoint.hostname;
                 m_socket.close();
             }
             setupCallback();
@@ -987,10 +980,10 @@ void NetworkManagerServer::acceptConnection(boost::system::error_code error)
     }
 
     const int conId = ++priv->lastConnectionId;
-    CON_DEBUG("NWM", "acceptTcpConnection; creating new connection object %d\n", conId);
+    logDebug(Log::NWM) << "acceptTcpConnection; creating new connection object" << conId;
     std::shared_ptr<NetworkManagerConnection> connection = std::make_shared<NetworkManagerConnection>(priv, std::move(m_socket), conId);
     priv->connections.insert(std::make_pair(conId, connection));
-    CON_DEBUG("NWM", "Total connections now; %d\n", (int) priv->connections.size());
+    logDebug(Log::NWM) << "Total connections now;" << priv->connections.size();
 
     setupCallback(); // only after we std::move socket, to avoid an "Already open" error
     NetworkConnection con(connection, conId);
