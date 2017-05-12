@@ -339,7 +339,7 @@ static void addZmqOptions(AllowedArgs& allowedArgs)
 
 static void addDebuggingOptions(AllowedArgs& allowedArgs, HelpMessageMode mode)
 {
-    std::string debugCategories = "addrman, alert, bench, coindb, db, lock, rand, rpc, selectcoins, mempool, mempoolrej, net, proxy, prune, http, libevent, tor, zmq, thin, NWM";
+    std::string debugCategories = "addrman, bench, coindb, db, lock, rand, rpc, selectcoins, mempool, mempoolrej, net, proxy, prune, http, libevent, tor, zmq, thin, NWM";
     if (mode == HMM_BITCOIN_QT)
         debugCategories += ", qt";
 
