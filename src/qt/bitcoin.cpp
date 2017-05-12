@@ -157,9 +157,8 @@ void DebugMessageHandler(QtMsgType type, const char *msg)
 #else
 void DebugMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString &msg)
 {
-    Q_UNUSED(context);
-    const char *category = (type == QtDebugMsg) ? "qt" : NULL;
-    LogPrint(category, "GUI: %s\n", msg.toStdString());
+    Log::Item(context.file, context.line, context.function, Log::QtGui, type)
+            << msg.toUtf8().constData();
 }
 #endif
 

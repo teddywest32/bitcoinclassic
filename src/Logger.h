@@ -19,8 +19,6 @@
 #define LOGITEM_H
 
 #include <sstream>
-#include <list>
-#include <mutex>
 
 #include "tinyformat.h"
 
@@ -33,6 +31,7 @@ namespace Log {
 class Item;
 class SilentItem;
 class Channel;
+class ManagerPrivate;
 
 enum Verbosity {
     DebugLevel = 1,
@@ -43,39 +42,102 @@ enum Verbosity {
     MaxVerbosity
 };
 
+/**
+ * @brief The Sections enum is a way to enable/disable logging by sections of code.
+ * Sections in logging work in two levels. We have groups with enum 0, 100, 200, etc.
+ * And under the groups are a small set of named sub-sections.
+ *
+ * Calling logInfo(220) will use section "Net" and an unnamed sub-section 220.
+ * A user can enable/disable whole sections, like "Net" and that would make this log item
+ * be marked as disabled. Or the user can disable/enable specific sections like 220 to
+ * only have his/her class be logged.
+ *
+ * By not passing any section to logInfo() you select the group Global, which is typically
+ * used for general end-user information regardless of where in the code it is located.
+ */
 enum Sections {
+    Global = 0,
 
+    Validation = 100,
+    BlockValidation,
+    Bench,
+    Prune,
+
+    Networking = 200,
+    Net,
+    Addrman,
+    Proxy,
+    NWM,
+    Tor,
+    ThinBlocks,
+    ExpeditedBlocks,
+
+    AdminServer = 300,
+    RPC,
+    LibEvent,
+    HTTP,
+    ZMQ,
+
+    DB = 400,
+    Coindb,
+
+    Wallet = 500,
+    SelectCoins,
+
+    Internals = 600,
+    Mempool,
+    MempoolRej,
+    Random,
+
+    QtGui = 700
 };
 
-
+/**
+ * @brief The Manager class is meant to be a singleton that owns the logging settings.
+ * This class actually distributes the logging lines to the different channels and
+ * it allows a log-item to know it has been disabled and as such can avoid actual logging.
+ */
 class Manager
 {
 public:
+    /// please use instance() instead.
     Manager();
     ~Manager();
 
-    // backwards compatible.
-    bool enabled(const char *region) const;
-    bool enabled(int section) const;
+    /**
+     * Returns true if the section has been enabled.
+     */
+    bool isEnabled(short section) const;
+    /**
+     * Returns the mapping of an old-style text based section to our internal one.
+     */
+    short section(const char *category);
 
     static Manager* instance();
+
+    /// This is only called by the Item to log its data on the logging channels.
     void log(Item *item);
 
+    /// Request files to be closed and opened anew.
     void reopenLogFiles();
 
+    /// Load a simple setup that prints all logging to stdout and nothing to file.
     void loadDefaultTestSetup();
+
+    void parseConfig();
 
 private:
     void clearChannels();
-    std::list<Channel*> m_channels;
-    std::mutex m_lock;
-    std::string m_lastTime;
+
+    ManagerPrivate *d;
 };
 
+/// Items are instantiated by calling macros like logInfo(), use this to stream your data into the item.
+/// One item instance represents one line in the logs, a linefeed is auto-appended if needed.
 class Item
 {
 public:
-    explicit Item(const char *filename, int lineNumber, const char *methodName, int verbosity = InfoLevel);
+    explicit Item(const char *filename, int lineNumber, const char *methodName, short section, int verbosity = InfoLevel);
     explicit Item(int verbosity = InfoLevel);
     Item(const Item &other);
     ~Item();
@@ -84,18 +146,18 @@ public:
     inline Item &space() { d->space = true; d->stream << ' '; return *this; }
     inline Item &maybespace() { if (d->space) d->stream << ' '; return *this; }
 
+    /// returns the verbosity that this item has been instantiated with.
+    /// @see Log::Verbosity
     inline int verbosity() const {
         return d->verbosity;
     }
-    inline void setVerbosity(int val) {
-        d->verbosity = val;
-    }
+    /// Returns true if the logging is enabled for this item.
+    /// It is safe to skip more expensive operations if the item is disabled.
     inline bool isEnabled() const {
         return d->on;
     }
-    inline void setEnabled(bool enabled) {
-        d->on = enabled;
-    }
+    /// The application Section this log item was created in. @see Log::Sections
+    short section() const;
 
     inline Item &operator<<(char c) { if(d->on)d->stream << c; return maybespace(); }
     inline Item &operator<<(const char *c) { if(d->on)d->stream << c; return maybespace(); }
@@ -120,12 +182,13 @@ private:
     friend class Manager;
     friend class MessageLogger;
     struct State {
-        State(const char*filename, int lineNumber, const char *methodName) : lineNum(lineNumber), filename(filename), methodName(methodName) {}
+        State(const char*filename, int lineNumber, const char *methodName, short section) : section(section), lineNum(lineNumber), filename(filename), methodName(methodName) {}
         std::ostringstream stream;
         bool space;
         bool on;
         short verbosity;
         short ref;
+        short section;
         const int lineNum;
         const char *filename;
         const char *methodName;
@@ -133,87 +196,95 @@ private:
 };
 
 
-
+/// This class should likely never be used manually, it purely exists to create Item and SilentItem instances.
 class MessageLogger {
 public:
     MessageLogger();
     explicit MessageLogger(const char *filename, int lineNumber, const char *methodName);
 
-    Item debug(int section = 0);
-    Item warning(int section = 0);
-    Item info(int section = 0);
-    Item critical(int section = 0);
-    Item fatal(int section = 0);
+    inline Item debug(short section = 0) {
+        return Log::Item(m_file, m_line, m_method, section, Log::DebugLevel);
+    }
+    inline Item warning(short section = 0) {
+        return Log::Item(m_file, m_line, m_method, section, Log::WarningLevel);
+    }
+    inline Item info(short section = 0) {
+        return Log::Item(m_file, m_line, m_method, section, Log::InfoLevel);
+    }
+    inline Item critical(short section = 0) {
+        return Log::Item(m_file, m_line, m_method, section, Log::CriticalLevel);
+    }
+    inline Item fatal(short section = 0) {
+        return Log::Item(m_file, m_line, m_method, section, Log::FatalLevel);
+    }
 
     inline Log::SilentItem noDebug(int = 0);
 
 #define MAKE_LOGGER_FUNCTIONS(n) \
     template<TINYFORMAT_ARGTYPES(n)> \
     inline void infoCompat(const char *section, const char* format, TINYFORMAT_VARARGS(n)) { \
-        Item item(m_file, m_line, m_method); \
-        item.setEnabled(Manager::instance()->enabled(section)); \
-        item.d->stream << tfm::format(format, TINYFORMAT_PASSARGS(n)); \
+        Item item(m_file, m_line, m_method, Manager::instance()->section(section)); \
+        if (format && item.isEnabled()) \
+            item.d->stream << tfm::format(format, TINYFORMAT_PASSARGS(n)); \
     } \
     template<TINYFORMAT_ARGTYPES(n)> \
     inline Item debug(const char* format, TINYFORMAT_VARARGS(n)) { \
-        Item item(m_file, m_line, m_method, DebugLevel); \
+        Item item(m_file, m_line, m_method, Log::Global, DebugLevel); \
         item.d->stream << tfm::format(format, TINYFORMAT_PASSARGS(n)); \
         return item; \
     } \
     template<TINYFORMAT_ARGTYPES(n)> \
     inline Item info(const char* format, TINYFORMAT_VARARGS(n)) { \
-        Item item(m_file, m_line, m_method); \
+        Item item(m_file, m_line, m_method, Log::Global, InfoLevel); \
         item.d->stream << tfm::format(format, TINYFORMAT_PASSARGS(n)); \
         return item; \
     } \
     template<TINYFORMAT_ARGTYPES(n)> \
-    inline Item warning(int section, const char* format, TINYFORMAT_VARARGS(n)) { \
-        Item item(m_file, m_line, m_method, WarningLevel); \
+    inline Item warning(const char* format, TINYFORMAT_VARARGS(n)) { \
+        Item item(m_file, m_line, m_method, Log::Global, WarningLevel); \
         item.d->stream << tfm::format(format, TINYFORMAT_PASSARGS(n)); \
         return item; \
     } \
     template<TINYFORMAT_ARGTYPES(n)> \
     inline Item critical(const char* format, TINYFORMAT_VARARGS(n)) { \
-        Item item(m_file, m_line, m_method, CriticalLevel); \
+        Item item(m_file, m_line, m_method, Log::Global, CriticalLevel); \
         item.d->stream << tfm::format(format, TINYFORMAT_PASSARGS(n)); \
         return item; \
     } \
     template<TINYFORMAT_ARGTYPES(n)> \
     inline Item fatal(const char* format, TINYFORMAT_VARARGS(n)) { \
-        Item item(m_file, m_line, m_method, FatalLevel); \
+        Item item(m_file, m_line, m_method, Log::Global, FatalLevel); \
         item.d->stream << tfm::format(format, TINYFORMAT_PASSARGS(n)); \
         return item; \
     }
 TINYFORMAT_FOREACH_ARGNUM(MAKE_LOGGER_FUNCTIONS)
 
     inline void infoCompat(const char *section, const char* format = 0) {
-        Item item(m_file, m_line, m_method);
-        item.setEnabled(Manager::instance()->enabled(section));
-        if (format)
-            item.d->stream << format;
+        Item item(m_file, m_line, m_method, Manager::instance()->section(section));
+        item.d->stream << format;
     }
     inline Item debug(const char* format) {
-        Item item(m_file, m_line, m_method, DebugLevel);
+        Item item(m_file, m_line, m_method, Log::Global, DebugLevel);
         item.d->stream << format;
         return item;
     }
     inline Item info(const char* format) {
-        Item item(m_file, m_line, m_method);
+        Item item(m_file, m_line, m_method, Log::Global);
         item.d->stream << format;
         return item;
     }
     inline Item warning(const char* format) {
-        Item item(m_file, m_line, m_method, WarningLevel);
+        Item item(m_file, m_line, m_method, Log::Global, WarningLevel);
         item.d->stream << format;
         return item;
     }
     inline Item critical(const char* format) {
-        Item item(m_file, m_line, m_method, CriticalLevel);
+        Item item(m_file, m_line, m_method, Log::Global, CriticalLevel);
         item.d->stream << format;
         return item;
     }
     inline Item fatal(const char* format) {
-        Item item(m_file, m_line, m_method, FatalLevel);
+        Item item(m_file, m_line, m_method, Log::Global, FatalLevel);
         item.d->stream << format;
         return item;
     }
@@ -224,6 +295,7 @@ private:
 };
 
 
+/// A no-logging item.
 class SilentItem {
 public:
     inline int verbosity() const {
@@ -284,5 +356,16 @@ inline SilentItem MessageLogger::noDebug(int) { return SilentItem(); }
 #  undef logWarning
 #  define logWarning BTC_NO_DEBUG_MACRO
 #endif
+
+#include <atomic>
+template<class T>
+inline Log::Item operator<<(Log::Item item, std::atomic<T> &atomic) {
+    if (item.isEnabled()) item << atomic.load();
+    return item.space();
+}
+template<class T>
+inline Log::SilentItem operator<<(Log::SilentItem item, std::atomic<T>&) { return item; }
+Log::Item operator<<(Log::Item item, const std::exception &ex);
+inline Log::SilentItem operator<<(Log::SilentItem item, const std::exception &ex) { return item; }
 
 #endif

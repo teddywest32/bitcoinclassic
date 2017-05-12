@@ -21,55 +21,99 @@
 
 #include <string>
 #include <set>
+#include <list>
+#include <map>
+#include <mutex>
 
 #include <boost/thread.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 
 bool fDebug = false;
 
+class Log::ManagerPrivate {
+public:
+    std::list<Channel*> channels;
+    std::mutex lock;
+    std::string lastTime;
+    std::map<short, std::string> sectionNames;
+    std::map<std::string, short> categoryMapping;
+    std::set<short> enabledSections;
+};
+
 Log::Manager::Manager()
+    : d(new ManagerPrivate())
 {
     if (GetBoolArg("-printtoconsole", false))
-        m_channels.push_back(new ConsoleLogChannel());
-    m_channels.push_back(new FileLogChannel());
+        d->channels.push_back(new ConsoleLogChannel());
+    d->channels.push_back(new FileLogChannel());
+
+    d->sectionNames.emplace(Log::Validation, "Validation");
+    d->sectionNames.emplace(Log::Bench, "Bench");
+    d->sectionNames.emplace(Log::Prune, "Prune");
+    d->sectionNames.emplace(Log::Net, "Net");
+    d->sectionNames.emplace(Log::Addrman, "Addrman");
+    d->sectionNames.emplace(Log::Proxy, "Proxy");
+    d->sectionNames.emplace(Log::NWM, "NWM");
+    d->sectionNames.emplace(Log::Tor, "Tor");
+    d->sectionNames.emplace(Log::AdminServer, "AdminServer");
+    d->sectionNames.emplace(Log::RPC, "RPC");
+    d->sectionNames.emplace(Log::HTTP, "HTTP");
+    d->sectionNames.emplace(Log::ZMQ, "ZMQ");
+    d->sectionNames.emplace(Log::DB, "DB");
+    d->sectionNames.emplace(Log::Coindb, "Coindb");
+    d->sectionNames.emplace(Log::Wallet, "Wallet");
+    d->sectionNames.emplace(Log::SelectCoins, "SelectCoins");
+    d->sectionNames.emplace(Log::Internals, "Internals");
+    d->sectionNames.emplace(Log::Mempool, "Mempool");
+    d->sectionNames.emplace(Log::Random, "Random");
+
+    // this is purely to be backwards compatible with the old style where the section was a string.
+    d->categoryMapping.emplace("bench", Log::Bench);
+    d->categoryMapping.emplace("addrman", Log::Addrman);
+    d->categoryMapping.emplace("blk", Log::ExpeditedBlocks);
+    d->categoryMapping.emplace("coindb", Log::Coindb);
+    d->categoryMapping.emplace("db", Log::DB);
+    d->categoryMapping.emplace("estimatefee", 502);
+    d->categoryMapping.emplace("http", Log::HTTP);
+    d->categoryMapping.emplace("libevent", Log::LibEvent);
+    d->categoryMapping.emplace("mempool", Log::Mempool);
+    d->categoryMapping.emplace("mempoolrej", Log::MempoolRej);
+    d->categoryMapping.emplace("net", Log::Net);
+    d->categoryMapping.emplace("partitioncheck", Global);
+    d->categoryMapping.emplace("proxy", Log::Proxy);
+    d->categoryMapping.emplace("prune", Log::Prune);
+    d->categoryMapping.emplace("rand", Log::Random);
+    d->categoryMapping.emplace("rpc", Log::RPC);
+    d->categoryMapping.emplace("selectcoins", Log::SelectCoins);
+    d->categoryMapping.emplace("thin", Log::ThinBlocks);
+    d->categoryMapping.emplace("tor", Log::Tor);
+    d->categoryMapping.emplace("zmq", Log::ZMQ);
+    d->categoryMapping.emplace("reindex", 604);
+
+    parseConfig();
 }
 
 Log::Manager::~Manager()
 {
     clearChannels();
+    delete d;
 }
 
-bool Log::Manager::enabled(const char *region) const
+bool Log::Manager::isEnabled(short section) const
 {
-    if (region != NULL) {
-        if (!fDebug)
-            return false;
-
-        // Give each thread quick access to -debug settings.
-        // This helps prevent issues debugging global destructors,
-        // where mapMultiArgs might be deleted before another
-        // global destructor calls LogPrint()
-        static boost::thread_specific_ptr<std::set<std::string> > ptrCategory;
-        if (ptrCategory.get() == nullptr) {
-            const std::vector<std::string>& categories = mapMultiArgs["-debug"];
-            ptrCategory.reset(new std::set<std::string>(categories.begin(), categories.end()));
-            // thread_specific_ptr automatically deletes the set when the thread ends.
-        }
-        const std::set<std::string>& setCategories = *ptrCategory.get();
-
-        // if not debugging everything and not debugging specific region, LogPrint does nothing.
-        if (setCategories.count(std::string("")) == 0 &&
-            setCategories.count(std::string("1")) == 0 &&
-            setCategories.count(std::string(region)) == 0)
-            return false;
-    }
-    return true;
+    if (d->enabledSections.count(section))
+        return true;
+    const short region = section - (section % 100);
+    return d->enabledSections.count(region);
 }
 
-bool Log::Manager::enabled(int category) const
+short Log::Manager::section(const char *category)
 {
-    // TODO
-    return true;
+    if (!category)
+        return Log::Global;
+    auto iter = d->categoryMapping.find(category);
+    assert (iter != d->categoryMapping.end());
+    return iter->second;
 }
 
 Log::Manager *Log::Manager::instance()
@@ -83,17 +127,17 @@ void Log::Manager::log(Log::Item *item)
     bool logTimestamps = GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     const int64_t timeMillis = GetTimeMillis();
     std::string newTime;
-    std::lock_guard<std::mutex> lock(m_lock);
-    for (auto channel : m_channels) {
+    std::lock_guard<std::mutex> lock(d->lock);
+    for (auto channel : d->channels) {
         if (logTimestamps && newTime.empty() && channel->formatTimestamp()) {
             newTime = DateTimeStrFormat("%Y-%m-%d %H:%M:%S", timeMillis/1000);
-            if (newTime == m_lastTime) {
+            if (newTime == d->lastTime) {
                 std::ostringstream millis;
                 millis.width(3);
                 millis << timeMillis % 1000;
                 newTime = "               ." + millis.str();
             } else {
-                m_lastTime = newTime;
+                d->lastTime = newTime;
             }
         }
         try {
@@ -104,8 +148,8 @@ void Log::Manager::log(Log::Item *item)
 
 void Log::Manager::reopenLogFiles()
 {
-    std::lock_guard<std::mutex> lock(m_lock);
-    for (auto channel : m_channels) {
+    std::lock_guard<std::mutex> lock(d->lock);
+    for (auto channel : d->channels) {
         channel->reopenLogFiles();
     }
 }
@@ -116,15 +160,45 @@ void Log::Manager::loadDefaultTestSetup()
     auto channel = new ConsoleLogChannel();
     channel->setPrintMethodName(true);
     channel->setFormatTimestamp(false);
-    m_channels.push_back(channel);
+    d->channels.push_back(channel);
+}
+
+void Log::Manager::parseConfig()
+{
+    d->enabledSections.clear();
+
+    // Parse the old fashioned way of enabling/disabling log sections.
+    bool all = false, none = false;
+    for (auto cat : mapMultiArgs["-debug"]) {
+        if (cat.empty() || cat == "1") { // turns all on.
+            all = true;
+            break;
+        }
+        if (cat == "0") { // all off
+            none = true;
+            break;
+        }
+        auto iter = d->categoryMapping.find(cat);
+        if (iter == d->categoryMapping.end())
+            continue; // silently ignore
+        d->enabledSections.insert(iter->second);
+    }
+    if (!none)
+        d->enabledSections.insert(Log::Global);
+    if (all) {
+        for (short i = 0; i <= 2000; i+=100)
+            d->enabledSections.insert(i);
+    }
+
+    // TODO find a better way to load/save the sections.
 }
 
 void Log::Manager::clearChannels()
 {
-    for (auto channel : m_channels) {
+    for (auto channel : d->channels) {
         delete channel;
     }
-    m_channels.clear();
+    d->channels.clear();
 }
 
 /////////////////////////////////////////////////
@@ -142,20 +216,20 @@ Log::MessageLogger::MessageLogger(const char *filename, int line, const char *fu
 
 /////////////////////////////////////////////////
 
-Log::Item::Item(const char *filename, int line, const char *function, int verbosity)
-    : d(new State(filename, line, function))
+Log::Item::Item(const char *filename, int line, const char *function, short section, int verbosity)
+    : d(new State(filename, line, function, section))
 {
     d->space = true;
-    d->on = true;
+    d->on = Manager::instance()->isEnabled(section);
     d->verbosity = verbosity;
     d->ref = 1;
 }
 
 Log::Item::Item(int verbosity)
-    : d(new State(nullptr, 0, nullptr))
+    : d(new State(nullptr, 0, nullptr, Log::Global))
 {
     d->space = true;
-    d->on = true;
+    d->on = Manager::instance()->isEnabled(Log::Global);
     d->verbosity = verbosity;
     d->ref = 1;
 }
@@ -175,42 +249,13 @@ Log::Item::~Item()
     }
 }
 
-Log::Item Log::MessageLogger::debug(int section)
+short Log::Item::section() const
 {
-    Log::Item item(m_file, m_line, m_method);
-    item.setVerbosity(Log::DebugLevel);
-    item.setEnabled(Log::Manager::instance()->enabled(section));
-    return item;
+    return d->section;
 }
 
-Log::Item Log::MessageLogger::warning(int section)
-{
-    Log::Item item(m_file, m_line, m_method);
-    item.setVerbosity(Log::WarningLevel);
-    item.setEnabled(Log::Manager::instance()->enabled(section));
-    return item;
-}
-
-Log::Item Log::MessageLogger::info(int section)
-{
-    Log::Item item(m_file, m_line, m_method);
-    item.setVerbosity(Log::InfoLevel);
-    item.setEnabled(Log::Manager::instance()->enabled(section));
-    return item;
-}
-
-Log::Item Log::MessageLogger::critical(int section)
-{
-    Log::Item item(m_file, m_line, m_method);
-    item.setVerbosity(Log::CriticalLevel);
-    item.setEnabled(Log::Manager::instance()->enabled(section));
-    return item;
-}
-
-Log::Item Log::MessageLogger::fatal(int section)
-{
-    Log::Item item(m_file, m_line, m_method);
-    item.setVerbosity(Log::FatalLevel);
-    item.setEnabled(Log::Manager::instance()->enabled(section));
-    return item;
+Log::Item operator<<(Log::Item item, const std::exception &ex) {
+    if (item.isEnabled()) item << ex.what();
+    // TODO configure if we want a stacktrace?
+    return item.space();
 }

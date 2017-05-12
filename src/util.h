@@ -80,7 +80,7 @@ bool SetupNetworking();
     } \
     template<TINYFORMAT_ARGTYPES(n)> \
     static inline bool error(const char* format, TINYFORMAT_VARARGS(n)) { \
-        Log::MessageLogger(nullptr, 0, nullptr).warning(0, format, TINYFORMAT_PASSARGS(n)); \
+        Log::MessageLogger(nullptr, 0, nullptr).warning(format, TINYFORMAT_PASSARGS(n)); \
         return false;\
     }
 

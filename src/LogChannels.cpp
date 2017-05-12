@@ -108,7 +108,7 @@ void FileLogChannel::pushLog(int64_t, const std::string &timestamp, const std::s
         FileWriteStr(timestamp, m_fileout);
         FileWriteStr(" ", m_fileout);
         FileWriteStr(line, m_fileout);
-        if (!line.empty() && line.back() != '\n')
+        if (line.empty() || line.back() != '\n')
             FileWriteStr("\n", m_fileout);
     }
 }
