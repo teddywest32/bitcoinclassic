@@ -179,7 +179,7 @@ void NetworkManagerPrivate::cronHourly(const boost::system::error_code &error)
         connection.second->m_punishment = std::max(0, connection.second->m_punishment - 100);
         // logDebug(Log::NWM) << "peer ban scrore;" << connection.second->m_punishment;
     }
-    m_cronHourly.expires_from_now(boost::posix_time::hours(24));
+    m_cronHourly.expires_from_now(boost::posix_time::hours(1));
     m_cronHourly.async_wait(std::bind(&NetworkManagerPrivate::cronHourly, this, std::placeholders::_1));
 }
 
