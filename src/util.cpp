@@ -74,6 +74,7 @@
 
 #include <boost/algorithm/string/case_conv.hpp> // for to_lower()
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp> // for startswith() and endswith()
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -164,9 +165,10 @@ instance_of_cinit;
 static const std::set<std::string> affirmativeStrings{"", "1", "t", "y", "true", "yes"};
 
 /** Interpret string as boolean, for argument parsing */
-static bool InterpretBool(const std::string& strValue)
+bool InterpretBool(const std::string& strValue)
 {
-    return (affirmativeStrings.count(strValue) != 0);
+    std::string token = boost::trim_copy(strValue);
+    return (affirmativeStrings.count(token) != 0);
 }
 
 /** Turn -noX into -X=0 */

@@ -18,15 +18,22 @@
 #include "Logger.h"
 #include "LogChannels_p.h"
 #include "util.h"
+#include "chainparamsbase.h"
 
-#include <string>
-#include <set>
+#include <fstream>
 #include <list>
 #include <map>
 #include <mutex>
+#include <set>
+#include <sstream>
+#include <string>
 
 #include <boost/thread.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/algorithm/string/case_conv.hpp> // for to_lower()
+#include <boost/filesystem/fstream.hpp>
 
 bool fDebug = false;
 
@@ -34,19 +41,15 @@ class Log::ManagerPrivate {
 public:
     std::list<Channel*> channels;
     std::mutex lock;
-    std::string lastTime;
+    std::string lastTime, lastDateTime;
     std::map<short, std::string> sectionNames;
     std::map<std::string, short> categoryMapping;
-    std::set<short> enabledSections;
+    std::map<short, short> enabledSections;
 };
 
 Log::Manager::Manager()
     : d(new ManagerPrivate())
 {
-    if (GetBoolArg("-printtoconsole", false))
-        d->channels.push_back(new ConsoleLogChannel());
-    d->channels.push_back(new FileLogChannel());
-
     d->sectionNames.emplace(Log::Validation, "Validation");
     d->sectionNames.emplace(Log::Bench, "Bench");
     d->sectionNames.emplace(Log::Prune, "Prune");
@@ -90,7 +93,8 @@ Log::Manager::Manager()
     d->categoryMapping.emplace("zmq", Log::ZMQ);
     d->categoryMapping.emplace("reindex", 604);
 
-    parseConfig();
+    if (AreBaseParamsConfigured()) // allow running outside of Bitcoin as an executable.
+        parseConfig();
 }
 
 Log::Manager::~Manager()
@@ -99,12 +103,16 @@ Log::Manager::~Manager()
     delete d;
 }
 
-bool Log::Manager::isEnabled(short section) const
+bool Log::Manager::isEnabled(short section, Verbosity verbosity) const
 {
-    if (d->enabledSections.count(section))
-        return true;
+    auto iter = d->enabledSections.find(section);
+    if (iter != d->enabledSections.end())
+        return iter->second <= verbosity;
     const short region = section - (section % 100);
-    return d->enabledSections.count(region);
+    iter = d->enabledSections.find(region);
+    if (iter != d->enabledSections.end())
+        return iter->second <= verbosity;
+    return false;
 }
 
 short Log::Manager::section(const char *category)
@@ -127,21 +135,42 @@ void Log::Manager::log(Log::Item *item)
     bool logTimestamps = GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     const int64_t timeMillis = GetTimeMillis();
     std::string newTime;
+    std::string newDateTime;
     std::lock_guard<std::mutex> lock(d->lock);
     for (auto channel : d->channels) {
-        if (logTimestamps && newTime.empty() && channel->formatTimestamp()) {
-            newTime = DateTimeStrFormat("%Y-%m-%d %H:%M:%S", timeMillis/1000);
-            if (newTime == d->lastTime) {
-                std::ostringstream millis;
-                millis.width(3);
-                millis << timeMillis % 1000;
-                newTime = "               ." + millis.str();
-            } else {
-                d->lastTime = newTime;
+        std::string *timeStamp = nullptr;
+        if (logTimestamps) {
+            switch (channel->timeStampFormat()) {
+            case Channel::NoTime: break;
+            case Channel::DateTime:
+                if (newDateTime.empty()) {
+                    newDateTime = DateTimeStrFormat("%Y-%m-%d %H:%M:%S", timeMillis/1000);
+                    if (newDateTime == d->lastDateTime) {
+                        std::ostringstream millis;
+                        millis << std::setw(3) << timeMillis % 1000;
+                        newDateTime = "               ." + millis.str();
+                    } else {
+                        d->lastDateTime = newDateTime;
+                    }
+                }
+                timeStamp = &newDateTime;
+                break;
+            case Channel::TimeOnly:
+                if (newTime.empty()) {
+                    newTime = DateTimeStrFormat("%H:%M:%S", timeMillis/1000);
+                    if (newTime == d->lastTime) {
+                        std::ostringstream millis;
+                        millis << std::setw(3) << timeMillis % 1000;
+                        newTime = "    ." + millis.str();
+                    } else {
+                        d->lastTime = newTime;
+                    }
+                }
+                timeStamp = &newTime;
             }
         }
         try {
-            channel->pushLog(timeMillis, newTime, item->d->stream.str(), item->d->filename, item->d->lineNum, item->d->methodName, item->d->verbosity);
+            channel->pushLog(timeMillis, timeStamp, item->d->stream.str(), item->d->filename, item->d->lineNum, item->d->methodName, item->d->section, item->d->verbosity);
         } catch (...) {}
     }
 }
@@ -159,38 +188,121 @@ void Log::Manager::loadDefaultTestSetup()
     clearChannels();
     auto channel = new ConsoleLogChannel();
     channel->setPrintMethodName(true);
-    channel->setFormatTimestamp(false);
+    channel->setTimeStampFormat(Channel::TimeOnly);
     d->channels.push_back(channel);
 }
 
 void Log::Manager::parseConfig()
 {
+    std::lock_guard<std::mutex> lock(d->lock);
     d->enabledSections.clear();
+    // default settings with empty config
+    d->enabledSections[0] = Log::InfoLevel;
+    for (short i = 100; i <= 2000; i+=100)
+        d->enabledSections[i] = Log::CriticalLevel;
+
+    clearChannels();
+    Log::Channel *channel = nullptr;
+
+    bool loadedConsoleLog = false;
+    // parse the config file on top of that.
+    auto path = GetDataDir(false) / "logs.conf";
+    if (boost::filesystem::exists(path)) {
+        boost::filesystem::ifstream is(path);
+        std::string line;
+        while (std::getline(is, line)) {
+            boost::trim_left(line);
+            if (line.empty() || line[0] == '#')
+                continue;
+            boost::to_lower(line);
+            if (line.find("channel") == 0) {
+                channel = nullptr;
+                std::string type = line.substr(7);
+                std::string cleaned = boost::trim_copy(type);
+                if (type == cleaned) // we need some space between the channel and the type
+                    continue;
+                if (cleaned == "file") {
+                    channel = new FileLogChannel();
+                } else if (cleaned == "console") {
+                    channel = new ConsoleLogChannel();
+                    loadedConsoleLog = true;
+                }
+                if (channel)
+                    d->channels.push_back(channel);
+                continue;
+            }
+            if (line.find("option") == 0) {
+                std::string type = line.substr(6);
+                std::string cleaned = boost::trim_copy(type);
+                if (type == cleaned) // we need some space between the option and the type
+                    continue;
+                if (channel && cleaned.find("linenumber") == 0) {
+                    channel->setPrintLineNumber(InterpretBool(cleaned.substr(10)));
+                } else if (channel && cleaned.find("methodname") == 0) {
+                    channel->setPrintMethodName(InterpretBool(cleaned.substr(10)));
+                } else if (channel && cleaned.find("filename") == 0) {
+                    channel->setPrintFilename(InterpretBool(cleaned.substr(8)));
+                } else if (channel && cleaned.find("section") == 0) {
+                    channel->setPrintSection(InterpretBool(cleaned.substr(7)));
+                } else if (channel && cleaned.find("timestamplong") == 0) {
+                    channel->setTimeStampFormat(InterpretBool(cleaned.substr(13)) ? Channel::DateTime : Channel::NoTime);
+                } else if (channel && cleaned.find("timestamp") == 0) {
+                    channel->setTimeStampFormat(InterpretBool(cleaned.substr(9)) ? Channel::TimeOnly : Channel::NoTime);
+                }
+                continue;
+            }
+            try {
+                size_t offset;
+                int section = std::stoi(line, &offset);
+                std::string type = boost::trim_copy(line.substr(offset));
+                short level = Log::CriticalLevel;
+                if (type == "info")
+                    level = InfoLevel;
+                else if (type == "debug")
+                    level = DebugLevel;
+                else if (type == "quiet")
+                    level = FatalLevel;
+                d->enabledSections[section] = level;
+            } catch (const std::exception &) {
+                // unparsable line...
+            }
+        }
+    } else {
+        // default.
+        d->channels.push_back(new FileLogChannel());
+    }
 
     // Parse the old fashioned way of enabling/disabling log sections.
-    bool all = false, none = false;
+    // Override settings from config file.
+    // notice that with command-line args we can only do 'debug', no other levels.
     for (auto cat : mapMultiArgs["-debug"]) {
         if (cat.empty() || cat == "1") { // turns all on.
-            all = true;
+            for (short i = 0; i <= 2000; i+=100)
+                d->enabledSections[i] = Log::DebugLevel;
             break;
         }
         if (cat == "0") { // all off
-            none = true;
+            d->enabledSections[Log::Global] = Log::CriticalLevel;
             break;
         }
         auto iter = d->categoryMapping.find(cat);
         if (iter == d->categoryMapping.end())
             continue; // silently ignore
-        d->enabledSections.insert(iter->second);
-    }
-    if (!none)
-        d->enabledSections.insert(Log::Global);
-    if (all) {
-        for (short i = 0; i <= 2000; i+=100)
-            d->enabledSections.insert(i);
+        d->enabledSections[iter->second] = Log::DebugLevel;
     }
 
-    // TODO find a better way to load/save the sections.
+    if (!loadedConsoleLog && GetBoolArg("-printtoconsole", false))
+        d->channels.push_back(new ConsoleLogChannel());
+}
+
+const std::string &Log::Manager::sectionString(short section)
+{
+    static std::string empty;
+    ManagerPrivate *d = Log::Manager::instance()->d;
+    auto result = d->sectionNames.find(section);
+    if (result == d->sectionNames.end())
+        return empty;
+    return result->second;
 }
 
 void Log::Manager::clearChannels()
@@ -220,7 +332,7 @@ Log::Item::Item(const char *filename, int line, const char *function, short sect
     : d(new State(filename, line, function, section))
 {
     d->space = true;
-    d->on = Manager::instance()->isEnabled(section);
+    d->on = Manager::instance()->isEnabled(section, static_cast<Log::Verbosity>(verbosity));
     d->verbosity = verbosity;
     d->ref = 1;
 }
@@ -229,7 +341,7 @@ Log::Item::Item(int verbosity)
     : d(new State(nullptr, 0, nullptr, Log::Global))
 {
     d->space = true;
-    d->on = Manager::instance()->isEnabled(Log::Global);
+    d->on = Manager::instance()->isEnabled(Log::Global,  static_cast<Log::Verbosity>(verbosity));
     d->verbosity = verbosity;
     d->ref = 1;
 }

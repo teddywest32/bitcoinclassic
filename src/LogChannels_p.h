@@ -26,30 +26,21 @@ namespace Log {
 
 class Channel {
 public:
-    Channel(bool formatTimestamp) : m_formatTimestamp(formatTimestamp) {}
+    enum TimeStampFormat {
+        NoTime,
+        TimeOnly,
+        DateTime
+    };
+    Channel(TimeStampFormat formatTimestamp);
     virtual ~Channel() {}
 
-    virtual void pushLog(int64_t timeMillis, const std::string &timestamp, const std::string &line, const char *filename,
-                         int lineNumber, const char *methodName, int logLevel) = 0;
+    virtual void pushLog(int64_t timeMillis, std::string *timestamp, const std::string &line, const char *filename,
+                         int lineNumber, const char *methodName, short logSection, short logLevel) = 0;
 
     virtual void reopenLogFiles() {}
 
-    inline bool formatTimestamp() const {
-        return m_formatTimestamp;
-    }
-protected:
-    bool m_formatTimestamp;
-};
-
-}
-
-class ConsoleLogChannel : public Log::Channel
-{
-public:
-    ConsoleLogChannel();
-
-    virtual void pushLog(int64_t timeMillis, const std::string &timestamp, const std::string &line, const char *filename,
-                         int lineNumber, const char *methodName, int logLevel);
+    bool printSection() const;
+    void setPrintSection(bool printSection);
 
     bool printLineNumber() const;
     void setPrintLineNumber(bool printLineNumber);
@@ -60,12 +51,26 @@ public:
     bool printFilename() const;
     void setPrintFilename(bool printFilename);
 
-    void setFormatTimestamp(bool printTimestamp);
+    TimeStampFormat timeStampFormat() const;
+    void setTimeStampFormat(const TimeStampFormat &timeStampFormat);
 
-private:
+protected:
+    TimeStampFormat m_timeStampFormat;
+    bool m_printSection;
     bool m_printLineNumber;
     bool m_printMethodName;
     bool m_printFilename;
+};
+
+}
+
+class ConsoleLogChannel : public Log::Channel
+{
+public:
+    ConsoleLogChannel();
+
+    virtual void pushLog(int64_t timeMillis, std::string *timestamp, const std::string &line, const char *filename,
+                         int lineNumber, const char *methodName, short logSection, short logLevel);
 };
 
 class FileLogChannel : public Log::Channel
@@ -74,8 +79,8 @@ public:
     FileLogChannel();
     ~FileLogChannel();
 
-    virtual void pushLog(int64_t timeMillis, const std::string &timestamp, const std::string &line, const char *filename,
-                         int lineNumber, const char *methodName, int logLevel);
+    virtual void pushLog(int64_t timeMillis, std::string *timestamp, const std::string &line, const char *filename,
+                         int lineNumber, const char *methodName, short logSection, short logLevel);
     virtual void reopenLogFiles();
 
 private:

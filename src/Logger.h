@@ -19,6 +19,7 @@
 #define LOGITEM_H
 
 #include <sstream>
+#include <iomanip>
 
 #include "tinyformat.h"
 
@@ -38,8 +39,7 @@ enum Verbosity {
     WarningLevel,
     InfoLevel,
     CriticalLevel,
-    FatalLevel,
-    MaxVerbosity
+    FatalLevel
 };
 
 /**
@@ -107,7 +107,7 @@ public:
     /**
      * Returns true if the section has been enabled.
      */
-    bool isEnabled(short section) const;
+    bool isEnabled(short section, Log::Verbosity verbosity) const;
     /**
      * Returns the mapping of an old-style text based section to our internal one.
      */
@@ -124,13 +124,36 @@ public:
     /// Load a simple setup that prints all logging to stdout and nothing to file.
     void loadDefaultTestSetup();
 
+    /**
+     * @brief parseConfig reads the config file logging.conf from the datadir.
+     * The config file is a list of channels to output to and the log sections with
+     * log-verbosity.
+     * Example file;
+     *
+     * <code>
+     * channel file
+     * # comment
+     * channel console
+     *     option linenumber false
+     *     option methodname true
+     *     option filename true
+     *
+     * # Log sections from Log::Sections and verbosity
+     * 0 quiet
+     * 100 info
+     * 101 debug
+     * </endcode>
+     */
     void parseConfig();
+
+    static const std::string &sectionString(short section);
 
 private:
     void clearChannels();
 
     ManagerPrivate *d;
 };
+
 
 /// Items are instantiated by calling macros like logInfo(), use this to stream your data into the item.
 /// One item instance represents one line in the logs, a linefeed is auto-appended if needed.
@@ -145,6 +168,7 @@ public:
     inline Item &nospace() { d->space = false; return *this; }
     inline Item &space() { d->space = true; d->stream << ' '; return *this; }
     inline Item &maybespace() { if (d->space) d->stream << ' '; return *this; }
+    inline bool useSpace() const { return d->space; }
 
     /// returns the verbosity that this item has been instantiated with.
     /// @see Log::Verbosity
@@ -159,12 +183,12 @@ public:
     /// The application Section this log item was created in. @see Log::Sections
     short section() const;
 
+    inline Item &operator<<(bool val) { if(d->on)d->stream << (val?"true":"false"); return maybespace(); }
     inline Item &operator<<(char c) { if(d->on)d->stream << c; return maybespace(); }
     inline Item &operator<<(const char *c) { if(d->on)d->stream << c; return maybespace(); }
     inline Item &operator<<(int i) { if(d->on)d->stream << i; return maybespace(); }
     inline Item &operator<<(double val) { if(d->on)d->stream << val; return maybespace(); }
     inline Item &operator<<(const std::string &str) { if(d->on){d->stream << '"' << str << '"';} return maybespace(); }
-    inline Item &operator<<(bool val) { if(d->on)d->stream << val ; return maybespace(); }
     inline Item &operator<<(short val) { if(d->on)d->stream << val ; return maybespace(); }
     inline Item &operator<<(unsigned short val) { if(d->on)d->stream << val ; return maybespace(); }
     inline Item &operator<<(unsigned int val) { if(d->on)d->stream << val ; return maybespace(); }
@@ -174,7 +198,11 @@ public:
     inline Item &operator<<(unsigned long long val) { if(d->on)d->stream << val ; return maybespace(); }
     inline Item &operator<<(float val) { if(d->on)d->stream << val ; return maybespace(); }
     inline Item &operator<<(long double val) { if(d->on)d->stream << val ; return maybespace(); }
-    inline Item &operator<<(void* val) { if(d->on)d->stream << val ; return maybespace(); }
+    inline Item &operator<<(const void* val) { if(d->on)d->stream << val ; return maybespace(); }
+    inline Item &operator<<(std::nullptr_t) { if(d->on)d->stream << "(nullptr)" ; return maybespace(); }
+    inline Item &operator<<(std::ostream& (*pf)(std::ostream&)) { if(d->on)d->stream << pf; return *this; }
+    inline Item &operator<<(std::ios& (*pf)(std::ios&)) { if(d->on)d->stream << pf; return *this; }
+    inline Item &operator<<(std::ios_base& (*pf)(std::ios_base&)) { if(d->on)d->stream << pf; return *this; }
 
     Item operator=(const Item &other) = delete;
 
@@ -320,6 +348,10 @@ public:
     inline SilentItem &operator<<(float) {  return *this; }
     inline SilentItem &operator<<(long double) {  return *this; }
     inline SilentItem &operator<<(void*) { return *this; }
+    inline SilentItem &operator<<(std::nullptr_t) { return *this; }
+    inline SilentItem &operator<<(std::ostream& (*pf)(std::ostream&)) { return *this; }
+    inline SilentItem &operator<<(std::ios& (*pf)(std::ios&)) { return *this; }
+    inline SilentItem &operator<<(std::ios_base& (*pf)(std::ios_base&)) { return *this; }
 };
 
 inline SilentItem MessageLogger::noDebug(int) { return SilentItem(); }
@@ -359,13 +391,30 @@ inline SilentItem MessageLogger::noDebug(int) { return SilentItem(); }
 
 #include <atomic>
 template<class T>
-inline Log::Item operator<<(Log::Item item, std::atomic<T> &atomic) {
+inline Log::Item operator<<(Log::Item item, const std::atomic<T> &atomic) {
     if (item.isEnabled()) item << atomic.load();
-    return item.space();
+    return item.maybespace();
 }
 template<class T>
-inline Log::SilentItem operator<<(Log::SilentItem item, std::atomic<T>&) { return item; }
+inline Log::SilentItem operator<<(Log::SilentItem item, const std::atomic<T>&) { return item; }
 Log::Item operator<<(Log::Item item, const std::exception &ex);
 inline Log::SilentItem operator<<(Log::SilentItem item, const std::exception &ex) { return item; }
+
+#include <vector>
+template<class V>
+inline Log::Item operator<<(Log::Item item, const std::vector<V> &vector) {
+    if (item.isEnabled()) {
+        const bool old = item.useSpace();
+        item.nospace() << '(';
+        for (size_t i = 0; i < vector.size(); ++i) { if (i) item << ','; item << vector[i]; }
+        item << ')';
+        if (old)
+            return item.space();
+    }
+    return item.maybespace();
+}
+template<class V>
+inline Log::SilentItem operator<<(Log::SilentItem item, const std::vector<V>&) { return item; }
+
 
 #endif

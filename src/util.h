@@ -189,6 +189,9 @@ int GetNumCores();
 void SetThreadPriority(int nPriority);
 void RenameThread(const char* name);
 
+
+bool InterpretBool(const std::string& strValue);
+
 /**
  * .. and a wrapper that just calls func once
  */

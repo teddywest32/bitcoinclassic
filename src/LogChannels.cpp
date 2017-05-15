@@ -21,72 +21,120 @@
 #include <iostream>
 #include <strings.h>
 
-ConsoleLogChannel::ConsoleLogChannel()
-    : Channel(true),
-     m_printLineNumber(false),
-     m_printMethodName(false),
-     m_printFilename(false)
+namespace {
+std::string shortenMethod(const char *methodName) {
+    assert(methodName);
+    const char *start = strchr(methodName, ' ');
+    const char *end = strchr(methodName, '(');
+    if (start && end) {
+        ++start;
+        ++end;
+        std::string copy(start, end - start);
+        return std::move(copy);
+    }
+    return std::string();
+}
+
+}
+
+Log::Channel::Channel(TimeStampFormat f)
+    : m_timeStampFormat(f),
+      m_printSection(true),
+      m_printLineNumber(false),
+      m_printMethodName(true),
+      m_printFilename(false)
 {
 }
 
-void ConsoleLogChannel::pushLog(int64_t, const std::string &timestamp, const std::string &line, const char * /*filename*/, int /*lineNumber*/, const char *methodName, int logLevel)
+bool Log::Channel::printSection() const
+{
+    return m_printSection;
+}
+
+void Log::Channel::setPrintSection(bool printSection)
+{
+    m_printSection = printSection;
+}
+
+bool Log::Channel::printLineNumber() const
+{
+    return m_printLineNumber;
+}
+
+void Log::Channel::setPrintLineNumber(bool printLineNumber)
+{
+    m_printLineNumber = printLineNumber;
+}
+
+bool Log::Channel::printMethodName() const
+{
+    return m_printMethodName;
+}
+
+void Log::Channel::setPrintMethodName(bool printMethodName)
+{
+    m_printMethodName = printMethodName;
+}
+
+bool Log::Channel::printFilename() const
+{
+    return m_printFilename;
+}
+
+void Log::Channel::setPrintFilename(bool printFilename)
+{
+    m_printFilename = printFilename;
+}
+
+Log::Channel::TimeStampFormat Log::Channel::timeStampFormat() const
+{
+    return m_timeStampFormat;
+}
+
+void Log::Channel::setTimeStampFormat(const TimeStampFormat &timeStampFormat)
+{
+    m_timeStampFormat = timeStampFormat;
+}
+
+
+// ------------------------------------------------------
+
+ConsoleLogChannel::ConsoleLogChannel()
+    : Channel(TimeOnly)
+{
+}
+
+void ConsoleLogChannel::pushLog(int64_t, std::string *timestamp, const std::string &line, const char *filename, int lineNumber, const char *methodName, short logSection, short logLevel)
 {
     std::ostream &out = logLevel >= Log::WarningLevel ? std::clog : std::cout;
-    if (m_printMethodName && methodName) {
-        const char *start = strchr(methodName, ' ');
-        const char *end = strchr(methodName, '(');
-        if (start && end) {
-            ++start;
-            ++end;
-            std::string copy(start, end - start);
-            out << copy << ") ";
-        }
+    if (timestamp)
+        out << *timestamp << ' ';
+    if (m_printSection && logSection) {
+        out << '[';
+        const std::string section = Log::Manager::sectionString(logSection);
+        if (!section.empty())
+            out << section;
+        else
+            out << logSection;
+        out << "] ";
     }
-    if (m_formatTimestamp)
-        out << timestamp << ' ';
+    if (m_printFilename && filename)
+        out << filename << (m_printLineNumber ? ':' : ' ');
+    if (m_printLineNumber && lineNumber)
+        out << lineNumber << ';';
+    if (m_printMethodName && methodName) {
+        std::string m(shortenMethod(methodName));
+        if (!m.empty())
+            out << m << ") ";
+    }
     out << line;
     if (line.empty() || line.back() != '\n')
         out << std::endl;
     out.flush();
 }
 
-bool ConsoleLogChannel::printLineNumber() const
-{
-    return m_printLineNumber;
-}
-
-void ConsoleLogChannel::setPrintLineNumber(bool printLineNumber)
-{
-    m_printLineNumber = printLineNumber;
-}
-
-bool ConsoleLogChannel::printMethodName() const
-{
-    return m_printMethodName;
-}
-
-void ConsoleLogChannel::setPrintMethodName(bool printMethodName)
-{
-    m_printMethodName = printMethodName;
-}
-
-bool ConsoleLogChannel::printFilename() const
-{
-    return m_printFilename;
-}
-
-void ConsoleLogChannel::setPrintFilename(bool printFilename)
-{
-    m_printFilename = printFilename;
-}
-
-void ConsoleLogChannel::setFormatTimestamp(bool printTimestamp)
-{
-    m_formatTimestamp = printTimestamp;
-}
-
 FileLogChannel::FileLogChannel()
-    : Channel(true),
+    : Channel(DateTime),
       m_fileout(0)
 {
     reopenLogFiles();
@@ -102,11 +150,32 @@ static void FileWriteStr(const std::string &str, FILE *fp) {
     fwrite(str.data(), 1, str.size(), fp);
 }
 
-void FileLogChannel::pushLog(int64_t, const std::string &timestamp, const std::string &line, const char*, int, const char *, int)
+void FileLogChannel::pushLog(int64_t, std::string *timestamp, const std::string &line, const char*, int, const char *methodName, short logSection, short)
 {
     if (m_fileout) {
-        FileWriteStr(timestamp, m_fileout);
-        FileWriteStr(" ", m_fileout);
+        if (timestamp) {
+            FileWriteStr(*timestamp, m_fileout);
+            FileWriteStr(" ", m_fileout);
+        }
+        if (m_printSection && logSection) {
+            FileWriteStr("[", m_fileout);
+            const std::string section = Log::Manager::sectionString(logSection);
+            if (section.empty()) {
+                std::ostringstream num;
+                num << logSection;
+                FileWriteStr(num.str() , m_fileout);
+            } else {
+                FileWriteStr(section , m_fileout);
+            }
+            FileWriteStr("] ", m_fileout);
+        }
+        if (m_printMethodName && methodName) {
+            std::string m(shortenMethod(methodName));
+            if (!m.empty()) {
+                FileWriteStr(m , m_fileout);
+                FileWriteStr(") " , m_fileout);
+            }
+        }
         FileWriteStr(line, m_fileout);
         if (line.empty() || line.back() != '\n')
             FileWriteStr("\n", m_fileout);
