@@ -167,6 +167,7 @@ void Log::Manager::log(Log::Item *item)
                     }
                 }
                 timeStamp = &newTime;
+                break;
             }
         }
         try {
@@ -189,7 +190,12 @@ void Log::Manager::loadDefaultTestSetup()
     auto channel = new ConsoleLogChannel();
     channel->setPrintMethodName(true);
     channel->setTimeStampFormat(Channel::TimeOnly);
+    channel->setPrintSection(true);
     d->channels.push_back(channel);
+
+    d->enabledSections.clear();
+    for (short i = 0; i <= 2000; i+=100)
+        d->enabledSections[i] = Log::DebugLevel;
 }
 
 void Log::Manager::parseConfig()

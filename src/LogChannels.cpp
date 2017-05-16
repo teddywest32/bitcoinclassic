@@ -26,6 +26,8 @@ std::string shortenMethod(const char *methodName) {
     assert(methodName);
     const char *start = strchr(methodName, ' ');
     const char *end = strchr(methodName, '(');
+    if (!start || start > end)
+        start = methodName;
     if (start && end) {
         ++start;
         ++end;
