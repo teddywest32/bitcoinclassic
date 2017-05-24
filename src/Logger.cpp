@@ -108,7 +108,7 @@ bool Log::Manager::isEnabled(short section, Verbosity verbosity) const
     auto iter = d->enabledSections.find(section);
     if (iter != d->enabledSections.end())
         return iter->second <= verbosity;
-    const short region = section - (section % 100);
+    const short region = section - (section % 1000);
     iter = d->enabledSections.find(region);
     if (iter != d->enabledSections.end())
         return iter->second <= verbosity;
@@ -194,7 +194,7 @@ void Log::Manager::loadDefaultTestSetup()
     d->channels.push_back(channel);
 
     d->enabledSections.clear();
-    for (short i = 0; i <= 2000; i+=100)
+    for (short i = 0; i <= 20000; i+=1000)
         d->enabledSections[i] = Log::DebugLevel;
 }
 
@@ -204,7 +204,7 @@ void Log::Manager::parseConfig()
     d->enabledSections.clear();
     // default settings with empty config
     d->enabledSections[0] = Log::InfoLevel;
-    for (short i = 100; i <= 2000; i+=100)
+    for (short i = 1000; i <= 20000; i+=1000)
         d->enabledSections[i] = Log::CriticalLevel;
 
     clearChannels();
@@ -283,7 +283,7 @@ void Log::Manager::parseConfig()
     // notice that with command-line args we can only do 'debug', no other levels.
     for (auto cat : mapMultiArgs["-debug"]) {
         if (cat.empty() || cat == "1") { // turns all on.
-            for (short i = 0; i <= 2000; i+=100)
+            for (short i = 0; i <= 20000; i+=1000)
                 d->enabledSections[i] = Log::DebugLevel;
             break;
         }

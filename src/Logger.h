@@ -44,12 +44,12 @@ enum Verbosity {
 
 /**
  * @brief The Sections enum is a way to enable/disable logging by sections of code.
- * Sections in logging work in two levels. We have groups with enum 0, 100, 200, etc.
+ * Sections in logging work in two levels. We have groups with enum 0, 1000, 2000, etc.
  * And under the groups are a small set of named sub-sections.
  *
- * Calling logInfo(220) will use section "Net" and an unnamed sub-section 220.
+ * Calling logInfo(2020) will use section "Net" and an unnamed sub-section 2020.
  * A user can enable/disable whole sections, like "Net" and that would make this log item
- * be marked as disabled. Or the user can disable/enable specific sections like 220 to
+ * be marked as disabled. Or the user can disable/enable specific sections like 2020 to
  * only have his/her class be logged.
  *
  * By not passing any section to logInfo() you select the group Global, which is typically
@@ -58,12 +58,12 @@ enum Verbosity {
 enum Sections {
     Global = 0,
 
-    Validation = 100,
+    Validation = 1000,
     BlockValidation,
     Bench,
     Prune,
 
-    Networking = 200,
+    Networking = 2000,
     Net,
     Addrman,
     Proxy,
@@ -72,24 +72,24 @@ enum Sections {
     ThinBlocks,
     ExpeditedBlocks,
 
-    AdminServer = 300,
+    AdminServer = 3000,
     RPC,
     LibEvent,
     HTTP,
     ZMQ,
 
-    DB = 400,
+    DB = 4000,
     Coindb,
 
-    Wallet = 500,
+    Wallet = 5000,
     SelectCoins,
 
-    Internals = 600,
+    Internals = 6000,
     Mempool,
     MempoolRej,
     Random,
 
-    QtGui = 700
+    QtGui = 7000
 };
 
 /**
@@ -140,8 +140,8 @@ public:
      *
      * # Log sections from Log::Sections and verbosity
      * 0 quiet
-     * 100 info
-     * 101 debug
+     * 1000 info
+     * 1001 debug
      * </endcode>
      */
     void parseConfig();
