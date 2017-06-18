@@ -275,7 +275,7 @@ int CommandLineRPC(int argc, char *argv[])
         throw;
     }
     catch (const std::exception& e) {
-        strPrint = string("error: ") + e.what();
+        strPrint = std::string("error: ") + e.what();
         nRet = EXIT_FAILURE;
     }
     catch (...) {
