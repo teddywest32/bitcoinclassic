@@ -119,7 +119,7 @@ static void http_request_done(struct evhttp_request *req, void *ctx)
     }
 }
 
-UniValue CallRPC(const string& strMethod, const UniValue& params)
+UniValue CallRPC(const std::string& strMethod, const UniValue& params)
 {
     std::string host = GetArg("-rpcconnect", DEFAULT_RPCCONNECT);
     int port = GetArg("-rpcport", BaseParams().RPCPort());
@@ -207,7 +207,7 @@ UniValue CallRPC(const string& strMethod, const UniValue& params)
 
 int CommandLineRPC(int argc, char *argv[])
 {
-    string strPrint;
+    std::string strPrint;
     int nRet = 0;
     try {
         // Skip switches
@@ -219,7 +219,7 @@ int CommandLineRPC(int argc, char *argv[])
         // Method
         if (argc < 2)
             throw runtime_error("too few parameters");
-        string strMethod = argv[1];
+        std::string strMethod = argv[1];
 
         // Parameters default to strings
         std::vector<std::string> strParams(&argv[2], &argv[argc]);
