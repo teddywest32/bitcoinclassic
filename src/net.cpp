@@ -23,6 +23,7 @@
 #include "ui_interface.h"
 #include "utilstrencodings.h"
 #include "thinblock.h"
+#include "policy/policy.h"
 
 #ifdef WIN32
 #include <string.h>
@@ -668,7 +669,7 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
         if (handled < 0)
                 return false;
 
-        if (msg.in_data && msg.hdr.nMessageSize > MAX_PROTOCOL_MESSAGE_LENGTH) {
+        if (msg.in_data && msg.hdr.nMessageSize > Policy::blockSizeAcceptLimit() + 20000) {
             LogPrint("net", "Oversized message from peer=%i, disconnecting\n", GetId());
             return false;
         }
@@ -2535,7 +2536,7 @@ void CNode::BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSen
     ENTER_CRITICAL_SECTION(cs_vSend);
     assert(ssSend.size() == 0);
     ssSend << CMessageHeader(Params().MessageStart(), pszCommand, 0);
-    LogPrint("net", "sending: %s ", SanitizeString(pszCommand));
+    LogPrint("net", "sending: %s \n", SanitizeString(pszCommand));
 }
 
 void CNode::AbortMessage() UNLOCK_FUNCTION(cs_vSend)
