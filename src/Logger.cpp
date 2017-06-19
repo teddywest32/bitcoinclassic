@@ -377,8 +377,41 @@ short Log::Item::section() const
     return d->section;
 }
 
+Log::Item &Log::Item::operator<<(Log::StreamAlteration alteration)
+{
+    if (d->on) {
+        switch (alteration) {
+        case Log::Scientficic:
+            d->stream << std::scientific;
+            break;
+        case Fixed:
+            d->stream << std::fixed;
+            break;
+        case Hex:
+            d->stream << std::hex;
+            break;
+        case Dec:
+            d->stream << std::dec;
+            break;
+        case Oct:
+            d->stream << std::oct;
+            break;
+        default:
+            assert(false);
+        }
+    }
+
+    return *this;
+}
+
 Log::Item operator<<(Log::Item item, const std::exception &ex) {
     if (item.isEnabled()) item << ex.what();
     // TODO configure if we want a stacktrace?
     return item.space();
+}
+
+Log::__Precision Log::precision(int amount)
+{
+    Log::__Precision answer { amount };
+    return answer;
 }

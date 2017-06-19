@@ -34,6 +34,25 @@ class SilentItem;
 class Channel;
 class ManagerPrivate;
 
+/**
+ * Alteration options to be used to pass into a log stream.
+ */
+enum StreamAlteration {
+    Fixed, //< Equivalent to std::fixed
+    Scientficic, //< Equivalent to std::scientific
+    Hex, //< Equivalent to std::hex
+    Dec, //< Equivalent to std::dec
+    Oct //< Equivalent to std::oct
+};
+
+/// \internal
+struct __Precision {
+    int value;
+};
+/// Equivalent to std::setprecision(), but for LogItem
+/// \see StreamAlteration
+__Precision precision(int amount);
+
 enum Verbosity {
     DebugLevel = 1,
     WarningLevel,
@@ -204,6 +223,9 @@ public:
     inline Item &operator<<(std::ios& (*pf)(std::ios&)) { if(d->on)d->stream << pf; return *this; }
     inline Item &operator<<(std::ios_base& (*pf)(std::ios_base&)) { if(d->on)d->stream << pf; return *this; }
 
+    Item& operator<<(StreamAlteration alteration);
+    inline Item& operator<<(__Precision p) { d->stream << std::setprecision(p.value); return *this; }
+
     Item operator=(const Item &other) = delete;
 
 private:
@@ -352,6 +374,9 @@ public:
     inline SilentItem &operator<<(std::ostream& (*pf)(std::ostream&)) { return *this; }
     inline SilentItem &operator<<(std::ios& (*pf)(std::ios&)) { return *this; }
     inline SilentItem &operator<<(std::ios_base& (*pf)(std::ios_base&)) { return *this; }
+
+    inline SilentItem& operator<<(StreamAlteration) { return *this; }
+    inline SilentItem& operator<<(__Precision) { return *this; }
 };
 
 inline SilentItem MessageLogger::noDebug(int) { return SilentItem(); }
