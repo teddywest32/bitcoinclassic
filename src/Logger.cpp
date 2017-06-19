@@ -202,10 +202,6 @@ void Log::Manager::parseConfig()
 {
     std::lock_guard<std::mutex> lock(d->lock);
     d->enabledSections.clear();
-    // default settings with empty config
-    d->enabledSections[0] = Log::InfoLevel;
-    for (short i = 1000; i <= 20000; i+=1000)
-        d->enabledSections[i] = Log::CriticalLevel;
 
     clearChannels();
     Log::Channel *channel = nullptr;
@@ -214,6 +210,10 @@ void Log::Manager::parseConfig()
     // parse the config file on top of that.
     auto path = GetDataDir(false) / "logs.conf";
     if (boost::filesystem::exists(path)) {
+        // default base level is Warning for all, unless changed in the file.
+        for (short i = 0; i <= 20000; i+=1000)
+            d->enabledSections[i] = Log::WarningLevel;
+
         boost::filesystem::ifstream is(path);
         std::string line;
         while (std::getline(is, line)) {
@@ -261,13 +261,14 @@ void Log::Manager::parseConfig()
                 size_t offset;
                 int section = std::stoi(line, &offset);
                 std::string type = boost::trim_copy(line.substr(offset));
-                short level = Log::CriticalLevel;
+                short level = Log::CriticalLevel; // quiet is default
                 if (type == "info")
-                    level = InfoLevel;
+                    level = WarningLevel;
                 else if (type == "debug")
                     level = DebugLevel;
-                else if (type == "quiet")
+                else if (type == "silent")
                     level = FatalLevel;
+                // else if (type != "quiet")
                 d->enabledSections[section] = level;
             } catch (const std::exception &) {
                 // unparsable line...
@@ -276,6 +277,9 @@ void Log::Manager::parseConfig()
     } else {
         // default.
         d->channels.push_back(new FileLogChannel());
+        d->enabledSections[0] = Log::WarningLevel;
+        for (short i = 1000; i <= 20000; i+=1000)
+            d->enabledSections[i] = Log::CriticalLevel;
     }
 
     // Parse the old fashioned way of enabling/disabling log sections.
@@ -287,8 +291,9 @@ void Log::Manager::parseConfig()
                 d->enabledSections[i] = Log::DebugLevel;
             break;
         }
-        if (cat == "0") { // all off
-            d->enabledSections[Log::Global] = Log::CriticalLevel;
+        if (cat == "0") { // turns all off
+            for (short i = 0; i <= 20000; i+=1000)
+                d->enabledSections[i] = Log::CriticalLevel;
             break;
         }
         auto iter = d->categoryMapping.find(cat);
