@@ -165,8 +165,8 @@ inline uint256 uint256S(const std::string& str)
 template<unsigned int BITS>
 inline Log::Item operator<<(Log::Item item, const base_blob<BITS> &data) {
     if (item.isEnabled())
-        item.nospace() << data.ToString().c_str();
-    return item.space();
+        item << data.ToString().c_str();
+    return item;
 }
 template<unsigned int BITS>
 inline Log::SilentItem operator<<(Log::SilentItem item, const base_blob<BITS> &data) {
