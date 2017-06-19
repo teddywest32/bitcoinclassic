@@ -197,7 +197,6 @@ AC_ARG_ENABLE([dev-setup],
     [enable_dev_setup=$enableval],
     [enable_dev_setup=no])
 
-# Build a release
 AC_ARG_ENABLE([debug-messages],
     [AS_HELP_STRING([--enable-debug-messages],
                     [allow in build all low-level debug (default is yes)])],
@@ -210,7 +209,6 @@ AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 if test "x$enable_dev_setup" = xyes; then
     enable_debug="yes"
     enable_debug_messages=yes
-    #CPPFLAGS="$CPPFLAGS -DDEBUG_LOCKORDER"
     CPPFLAGS="$CPPFLAGS -DBTC_LOGCONTEXT -DUSE_UNSAFE_RANDOM"
 fi
 
@@ -227,6 +225,8 @@ if test "x$enable_debug" = xyes; then
     if test "x$GXX" = xyes; then
         CXXFLAGS="$CXXFLAGS -g3 -O0"
     fi
+else
+    CPPFLAGS="$CPPFLAGS -DNDEBUG"
 fi
 
 if test "x$CXXFLAGS_overridden" = "xno"; then
