@@ -267,6 +267,7 @@ void HandleSIGTERM(int)
 void HandleSIGHUP(int)
 {
     Log::Manager::instance()->reopenLogFiles();
+    Log::Manager::instance()->parseConfig();
 }
 
 bool static InitError(const std::string &str)
