@@ -418,7 +418,7 @@ inline SilentItem MessageLogger::noDebug(int) { return SilentItem(); }
 template<class T>
 inline Log::Item operator<<(Log::Item item, const std::atomic<T> &atomic) {
     if (item.isEnabled()) item << atomic.load();
-    return item.maybespace();
+    return item;
 }
 template<class T>
 inline Log::SilentItem operator<<(Log::SilentItem item, const std::atomic<T>&) { return item; }
@@ -436,7 +436,7 @@ inline Log::Item operator<<(Log::Item item, const std::vector<V> &vector) {
         if (old)
             return item.space();
     }
-    return item.maybespace();
+    return item;
 }
 template<class V>
 inline Log::SilentItem operator<<(Log::SilentItem item, const std::vector<V>&) { return item; }
