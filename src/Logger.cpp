@@ -32,7 +32,7 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem/operations.hpp>
-#include <boost/algorithm/string/case_conv.hpp> // for to_lower()
+#include <boost/algorithm/string.hpp> // for to_lower() / split()
 #include <boost/filesystem/fstream.hpp>
 
 bool fDebug = false;
@@ -145,7 +145,7 @@ void Log::Manager::log(Log::Item *item)
             case Channel::DateTime:
                 if (newDateTime.empty()) {
                     newDateTime = DateTimeStrFormat("%Y-%m-%d %H:%M:%S", timeMillis/1000);
-                    if (newDateTime == d->lastDateTime) {
+                    if (channel->showSubSecondPrecision() && newDateTime == d->lastDateTime) {
                         std::ostringstream millis;
                         millis << std::setw(3) << timeMillis % 1000;
                         newDateTime = "               ." + millis.str();
@@ -158,7 +158,7 @@ void Log::Manager::log(Log::Item *item)
             case Channel::TimeOnly:
                 if (newTime.empty()) {
                     newTime = DateTimeStrFormat("%H:%M:%S", timeMillis/1000);
-                    if (newTime == d->lastTime) {
+                    if (channel->showSubSecondPrecision() && newTime == d->lastTime) {
                         std::ostringstream millis;
                         millis << std::setw(3) << timeMillis % 1000;
                         newTime = "    ." + millis.str();
@@ -221,6 +221,8 @@ void Log::Manager::parseConfig()
             if (line.empty() || line[0] == '#')
                 continue;
             boost::to_lower(line);
+            int comment = line.find('#');
+            if (comment > 0) line = line.substr(0, comment);
             if (line.find("channel") == 0) {
                 channel = nullptr;
                 std::string type = line.substr(7);
@@ -244,16 +246,22 @@ void Log::Manager::parseConfig()
                     continue;
                 if (channel && cleaned.find("linenumber") == 0) {
                     channel->setPrintLineNumber(InterpretBool(cleaned.substr(10)));
-                } else if (channel && cleaned.find("methodname") == 0) {
+                } else if (channel && cleaned == "methodname") {
                     channel->setPrintMethodName(InterpretBool(cleaned.substr(10)));
-                } else if (channel && cleaned.find("filename") == 0) {
+                } else if (channel && cleaned == "filename") {
                     channel->setPrintFilename(InterpretBool(cleaned.substr(8)));
-                } else if (channel && cleaned.find("section") == 0) {
+                } else if (channel && cleaned == "section") {
                     channel->setPrintSection(InterpretBool(cleaned.substr(7)));
-                } else if (channel && cleaned.find("timestamplong") == 0) {
-                    channel->setTimeStampFormat(InterpretBool(cleaned.substr(13)) ? Channel::DateTime : Channel::NoTime);
                 } else if (channel && cleaned.find("timestamp") == 0) {
-                    channel->setTimeStampFormat(InterpretBool(cleaned.substr(9)) ? Channel::TimeOnly : Channel::NoTime);
+                    cleaned = cleaned.substr(9);
+                    std::vector<std::string> args;
+                    boost::split(args, cleaned, boost::is_any_of(", \t"));
+                    bool showDate = std::find(args.begin(), args.end(), "date") != args.end();
+                    bool showTime = std::find(args.begin(), args.end(), "time") != args.end();
+                    bool subSecond = std::find(args.begin(), args.end(), "millisecond") != args.end();
+
+                    channel->setTimeStampFormat(showDate ? Channel::DateTime : (showTime ? Channel::TimeOnly : Channel::NoTime));
+                    channel->setShowSubSecondPrecision(subSecond);
                 }
                 continue;
             }

@@ -150,17 +150,29 @@ public:
      * Example file;
      *
      * <code>
-     * channel file
-     * # comment
+     * # Anything behind a '#' is a comment
+     *
      * channel console
+     *     # linenumber / methodname / filename only work for developer-builds. (configure --enable-dev-setup)
      *     option linenumber false
      *     option methodname true
      *     option filename true
+     *     # timestamp-format.  No argments means no timestamp, adding 'date' implies 'time'.
+     *     option timestamp date time millisecond
+     *
+     * # just mentioning 'channel file' will enable it.
+     * channel file
+     *     # all options available for console are available for file too.
      *
      * # Log sections from Log::Sections and verbosity
-     * 0 quiet
-     * 1000 info
-     * 1001 debug
+     * # default value for all log sections that are not specifically added here is `info`
+     * 1000 quiet   # multiple of 1000 is a group, changes apply to all unset items in that group (1000-1999)
+     * 1007 debug   # override group setting.
+     *
+     * # silent only shows fatal
+     * # quiet only shows critical and fatal
+     * # info shows warning, info, critical and fatal
+     * # debug shows everything.
      * </endcode>
      */
     void parseConfig();

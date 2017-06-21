@@ -54,12 +54,16 @@ public:
     TimeStampFormat timeStampFormat() const;
     void setTimeStampFormat(const TimeStampFormat &timeStampFormat);
 
+    bool showSubSecondPrecision() const;
+    void setShowSubSecondPrecision(bool showSubSecondPrecision);
+
 protected:
     TimeStampFormat m_timeStampFormat;
     bool m_printSection;
     bool m_printLineNumber;
     bool m_printMethodName;
     bool m_printFilename;
+    bool m_showSubSecondPrecision;
 };
 
 }

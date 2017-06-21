@@ -44,7 +44,8 @@ Log::Channel::Channel(TimeStampFormat f)
       m_printSection(true),
       m_printLineNumber(false),
       m_printMethodName(true),
-      m_printFilename(false)
+      m_printFilename(false),
+      m_showSubSecondPrecision(true)
 {
 }
 
@@ -96,6 +97,16 @@ Log::Channel::TimeStampFormat Log::Channel::timeStampFormat() const
 void Log::Channel::setTimeStampFormat(const TimeStampFormat &timeStampFormat)
 {
     m_timeStampFormat = timeStampFormat;
+}
+
+bool Log::Channel::showSubSecondPrecision() const
+{
+    return m_showSubSecondPrecision;
+}
+
+void Log::Channel::setShowSubSecondPrecision(bool showSubSecondPrecision)
+{
+    m_showSubSecondPrecision = showSubSecondPrecision;
 }
 
 
