@@ -81,7 +81,7 @@ CScript ParseScript(const std::string& s)
         }
         else
         {
-            throw runtime_error("script parse error");
+            throw std::runtime_error("script parse error");
         }
     }
 
@@ -133,7 +133,7 @@ uint256 ParseHashUV(const UniValue& v, const std::string& strName)
 uint256 ParseHashStr(const std::string& strHex, const std::string& strName)
 {
     if (!IsHex(strHex)) // Note: IsHex("") is false
-        throw runtime_error(strName+" must be hexadecimal string (not '"+strHex+"')");
+        throw std::runtime_error(strName+" must be hexadecimal string (not '"+strHex+"')");
 
     uint256 result;
     result.SetHex(strHex);
@@ -146,6 +146,6 @@ std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::string& strN
     if (v.isStr())
         strHex = v.getValStr();
     if (!IsHex(strHex))
-        throw runtime_error(strName+" must be hexadecimal string (not '"+strHex+"')");
+        throw std::runtime_error(strName+" must be hexadecimal string (not '"+strHex+"')");
     return ParseHex(strHex);
 }
