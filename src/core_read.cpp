@@ -24,7 +24,7 @@ CScript ParseScript(const std::string& s)
 {
     CScript result;
 
-    static map<std::string, opcodetype> mapOpNames;
+    static std::map<std::string, opcodetype> mapOpNames;
 
     if (mapOpNames.empty())
     {
