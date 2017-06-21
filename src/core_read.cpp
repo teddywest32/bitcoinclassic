@@ -55,16 +55,16 @@ CScript ParseScript(const std::string& s)
             // Empty string, ignore. (boost::split given '' will return one word)
         }
         else if (all(*w, boost::algorithm::is_digit()) ||
-            (boost::algorithm::starts_with(*w, "-") && all(string(w->begin()+1, w->end()), boost::algorithm::is_digit())))
+            (boost::algorithm::starts_with(*w, "-") && all(std::string(w->begin()+1, w->end()), boost::algorithm::is_digit())))
         {
             // Number
             int64_t n = atoi64(*w);
             result << n;
         }
-        else if (boost::algorithm::starts_with(*w, "0x") && (w->begin()+2 != w->end()) && IsHex(string(w->begin()+2, w->end())))
+        else if (boost::algorithm::starts_with(*w, "0x") && (w->begin()+2 != w->end()) && IsHex(std::string(w->begin()+2, w->end())))
         {
             // Raw hex data, inserted NOT pushed onto stack:
-            std::vector<unsigned char> raw = ParseHex(string(w->begin()+2, w->end()));
+            std::vector<unsigned char> raw = ParseHex(std::string(w->begin()+2, w->end()));
             result.insert(result.end(), raw.begin(), raw.end());
         }
         else if (w->size() >= 2 && boost::algorithm::starts_with(*w, "'") && boost::algorithm::ends_with(*w, "'"))
