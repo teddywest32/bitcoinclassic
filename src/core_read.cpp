@@ -24,7 +24,7 @@ CScript ParseScript(const std::string& s)
 {
     CScript result;
 
-    static map<string, opcodetype> mapOpNames;
+    static map<std::string, opcodetype> mapOpNames;
 
     if (mapOpNames.empty())
     {
@@ -37,7 +37,7 @@ CScript ParseScript(const std::string& s)
             const char* name = GetOpName((opcodetype)op);
             if (strcmp(name, "OP_UNKNOWN") == 0)
                 continue;
-            string strName(name);
+            std::string strName(name);
             mapOpNames[strName] = (opcodetype)op;
             // Convenience: OP_ADD and just ADD are both recognized:
             boost::algorithm::replace_first(strName, "OP_", "");
@@ -45,7 +45,7 @@ CScript ParseScript(const std::string& s)
         }
     }
 
-    vector<string> words;
+    vector<std::string> words;
     boost::algorithm::split(words, s, boost::algorithm::is_any_of(" \t\n"), boost::algorithm::token_compress_on);
 
     for (std::vector<std::string>::const_iterator w = words.begin(); w != words.end(); ++w)
@@ -122,9 +122,9 @@ bool DecodeHexBlk(CBlock& block, const std::string& strHexBlk)
     return true;
 }
 
-uint256 ParseHashUV(const UniValue& v, const string& strName)
+uint256 ParseHashUV(const UniValue& v, const std::string& strName)
 {
-    string strHex;
+    std::string strHex;
     if (v.isStr())
         strHex = v.getValStr();
     return ParseHashStr(strHex, strName);  // Note: ParseHashStr("") throws a runtime_error
@@ -140,9 +140,9 @@ uint256 ParseHashStr(const std::string& strHex, const std::string& strName)
     return result;
 }
 
-vector<unsigned char> ParseHexUV(const UniValue& v, const string& strName)
+vector<unsigned char> ParseHexUV(const UniValue& v, const std::string& strName)
 {
-    string strHex;
+    std::string strHex;
     if (v.isStr())
         strHex = v.getValStr();
     if (!IsHex(strHex))
