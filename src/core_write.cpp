@@ -25,7 +25,7 @@ std::string FormatScript(const CScript& script)
     opcodetype op;
     while (it != script.end()) {
         CScript::const_iterator it2 = it;
-        vector<unsigned char> vch;
+	std::vector<unsigned char> vch;
         if (script.GetOp2(it, op, &vch)) {
             if (op == OP_0) {
                 ret += "0 ";
@@ -74,7 +74,7 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
 {
     std::string str;
     opcodetype opcode;
-    vector<unsigned char> vch;
+    std::vector<unsigned char> vch;
     CScript::const_iterator pc = script.begin();
     while (pc < script.end()) {
         if (!str.empty()) {
@@ -85,7 +85,7 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
             return str;
         }
         if (0 <= opcode && opcode <= OP_PUSHDATA4) {
-            if (vch.size() <= static_cast<vector<unsigned char>::size_type>(4)) {
+            if (vch.size() <= static_cast<std::vector<unsigned char>::size_type>(4)) {
                 str += strprintf("%d", CScriptNum(vch, false).getint());
             } else {
                 // the IsUnspendable check makes sure not to try to decode OP_RETURN data that may match the format of a signature
@@ -125,7 +125,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
                         UniValue& out, bool fIncludeHex)
 {
     txnouttype type;
-    vector<CTxDestination> addresses;
+    std::vector<CTxDestination> addresses;
     int nRequired;
 
     out.pushKV("asm", ScriptToAsmStr(scriptPubKey));
