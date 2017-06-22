@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
-// Copyright (C) 2016 Tom Zander <tomz@freedommail.ch>
+// Copyright (C) 2016-2017 Tom Zander <tomz@freedommail.ch>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -448,5 +448,19 @@ struct CMutableTransaction
      */
     uint256 GetHash() const;
 };
+
+Log::Item operator<<(Log::Item item, const COutPoint &p);
+inline Log::SilentItem operator<<(Log::SilentItem item, const COutPoint &) {
+    return item;
+}
+Log::Item operator<<(Log::Item item, const CTxIn &in);
+inline Log::SilentItem operator<<(Log::SilentItem item, const CTxIn &) {
+    return item;
+}
+Log::Item operator<<(Log::Item item, const CTxOut &in);
+inline Log::SilentItem operator<<(Log::SilentItem item, const CTxOut &) {
+    return item;
+}
+
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

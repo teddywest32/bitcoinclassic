@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
+// Copyright (C) 2017 Tom Zander <tomz@freedommail.ch>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -271,4 +272,32 @@ std::string CTransaction::ToString() const
     for (unsigned int i = 0; i < vout.size(); i++)
         str += "    " + vout[i].ToString() + "\n";
     return str;
+}
+
+Log::Item operator<<(Log::Item item, const COutPoint &p) {
+    if (item.isEnabled()) {
+        const bool old = item.useSpace();
+        item.nospace() << "Tx*[" << p.hash << "-" << p.n << ']';
+        if (old)
+            return item.space();
+    }
+    return item;
+}
+
+Log::Item operator<<(Log::Item item, const CTxOut &out)
+{
+    if (item.isEnabled()) {
+        const bool old = item.useSpace();
+        item.nospace() << "Out[" << out.nValue << " sat]";
+        if (old)
+            return item.space();
+    }
+    return item;
+
+}
+
+Log::Item operator<<(Log::Item item, const CTxIn &in)
+{
+    // ok, this may be a bit lazy. But I don't think I'll need anything else, ever.
+    return item.maybespace() << in.prevout;
 }

@@ -453,5 +453,14 @@ inline Log::Item operator<<(Log::Item item, const std::vector<V> &vector) {
 template<class V>
 inline Log::SilentItem operator<<(Log::SilentItem item, const std::vector<V>&) { return item; }
 
+template<typename T1, typename T2>
+inline Log::Item operator<<(Log::Item item, const std::pair<T1,T2> &p) {
+    const bool old = item.useSpace();
+    item.nospace() << "pair<" << p.first << "," << p.second << ">";
+    if (old)
+        return item.space();
+    return item;
+}
+
 
 #endif
