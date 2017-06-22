@@ -200,20 +200,21 @@ class FilterFormat:
             elif command == "EXIT":
                 self.started.remove(job_id)
                 self.finished_tests += 1
-                self.print_test_status()
                 (exit_code, time_ms) = args
                 if exit_code == 0 or (exit_code == 200 and not options.fail_empty_suites):
                     self.passed.append(job_id)
                 else:
                     self.failed.append(job_id)
+                    (binary, test) = self.tests[job_id]
+                    self.out.transient_line("-+==[%d/%d] Test failed; `%s', Loglines follow:"
+                            % (self.finished_tests, self.total_tests, test))
                     with open(file_name) as f:
                         for line in f.readlines():
-                            self.out.permanent_line(line.rstrip())
-
-                    (binary, test) = self.tests[job_id]
+                            self.out.permanent_line(" | %s" % line.rstrip())
                     self.out.permanent_line(
-                        "[%d/%d] %s returned/aborted with exit code %d (%d ms)"
-                        % (self.finished_tests, self.total_tests, test, exit_code, time_ms))
+                        " +- %s returned/aborted with exit code %d (%d ms)\n"
+                        % (test, exit_code, time_ms))
+                self.print_test_status()
             elif command == "TESTCNT":
                 self.total_tests = args[0]
                 self.out.transient_line(
