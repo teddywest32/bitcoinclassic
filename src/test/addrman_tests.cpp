@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(addrman_new_collisions)
     BOOST_CHECK(addrman.size() == 0);
 
     for (unsigned int i = 1; i < 4; i++){
-        CService addr = CService("250.1.1."+boost::to_string(i));
+        CService addr = CService("250.1.1."+std::to_string(i));
         addrman.Add(CAddress(addr), source);
 
         //Test 11: No collision in new table yet.
@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(addrman_tried_collisions)
     BOOST_CHECK(addrman.size() == 0);
 
     for (unsigned int i = 1; i < 75; i++){
-        CService addr = CService("250.1.1."+boost::to_string(i));
+        CService addr = CService("250.1.1."+std::to_string(i));
         addrman.Add(CAddress(addr), source);
         addrman.Good(CAddress(addr));
 
@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE(addrman_serialization)
         CNetAddr source = CNetAddr("252.2.2.2:8333");
 
         for (unsigned int i = 1; i < 75; ++i) {
-            CService addr = CService("250.1.1."+boost::to_string(i));
+            CService addr = CService("250.1.1."+std::to_string(i));
             bool ok = addrman.Add(CAddress(addr), source);
             BOOST_CHECK(ok);
             addrman.Good(CAddress(addr));
