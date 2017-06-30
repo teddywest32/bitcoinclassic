@@ -39,8 +39,6 @@
 # include <boost/algorithm/hex.hpp>
 #endif
 
-using namespace std;
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // BitcoinMiner
@@ -136,7 +134,7 @@ CBlockTemplate* Mining::CreateNewBlock(const CChainParams& chainparams) const
     CTxMemPool::setEntries waitSet;
 
     // This vector will be sorted into a priority queue:
-    vector<TxCoinAgePriority> vecPriority;
+    std::vector<TxCoinAgePriority> vecPriority;
     TxCoinAgePriorityCompare pricomparer;
     std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash> waitPriMap;
     typedef std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash>::iterator waitPriIter;
@@ -540,7 +538,7 @@ void static BitcoinMiner(const CChainParams& chainparams)
     }
 }
 
-CScript Mining::ScriptForCoinbase(const string &coinbase)
+CScript Mining::ScriptForCoinbase(const std::string &coinbase)
 {
     if (coinbase.empty())
         throw std::runtime_error("Please pass in a coinbase");
@@ -558,7 +556,7 @@ CScript Mining::ScriptForCoinbase(const string &coinbase)
     throw std::runtime_error("pubkey not in recognized format");
 }
 
-void Mining::GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams, const string &coinbase_)
+void Mining::GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams, const std::string &coinbase_)
 {
     if (nThreads < 0)
         nThreads = GetNumCores();
