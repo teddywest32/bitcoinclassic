@@ -34,8 +34,6 @@ public:
     };
     bool AddOrphanTx(const CTransaction& tx, int peerId);
 
-    void EraseOrphansFor(int peerId);
-
     void EraseOrphansByTime();
 
     std::uint32_t LimitOrphanTxSize();

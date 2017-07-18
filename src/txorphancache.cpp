@@ -85,21 +85,6 @@ void CTxOrphanCache::EraseOrphanTx(uint256 hash)
     m_mapOrphanTransactions.erase(it);
 }
 
-void CTxOrphanCache::EraseOrphansFor(NodeId peer)
-{
-    LOCK(m_lock);
-    int nErased = 0;
-    std::map<uint256, COrphanTx>::iterator iter = m_mapOrphanTransactions.begin();
-    while (iter != m_mapOrphanTransactions.end()) {
-        std::map<uint256, COrphanTx>::iterator maybeErase = iter++; // increment to avoid iterator becoming invalid
-        if (maybeErase->second.fromPeer == peer) {
-            EraseOrphanTx(maybeErase->second.tx.GetHash());
-            ++nErased;
-        }
-    }
-    if (nErased > 0) LogPrint("mempool", "Erased %d orphan tx from peer %d\n", nErased, peer);
-}
-
 void CTxOrphanCache::EraseOrphansByTime()
 {
     LOCK(m_lock);

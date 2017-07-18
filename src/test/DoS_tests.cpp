@@ -186,14 +186,6 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         }
     }
 
-    // Test EraseOrphansFor:
-    for (NodeId i = 0; i < 3; i++)
-    {
-        size_t sizeBefore = cache.mapOrphanTransactions().size();
-        cache.EraseOrphansFor(i);
-        BOOST_CHECK(cache.mapOrphanTransactions().size() < sizeBefore);
-    }
-
     // Test LimitOrphanTxSize() function:
     {
         cache.LimitOrphanTxSizePublic(40);
