@@ -350,6 +350,10 @@ public:
     const char* GetCommand() const;
     std::string ToString() const;
 
+    inline const uint256 &getHash() const {
+        return hash;
+    }
+
     // TODO: make private (improves encapsulation)
 public:
     int type;
@@ -369,5 +373,16 @@ enum {
     // and also provides the missing transactions that are needed at the other end to reconstruct the block
     MSG_XTHINBLOCK,
 };
+
+
+inline Log::SilentItem operator<<(Log::SilentItem item, const CInv&) { return item; }
+inline Log::Item operator<<(Log::Item item, const CInv &inv) {
+    const bool old = item.useSpace();
+    item.space() << inv.GetCommand() << inv.getHash();
+    if (old)
+        return item.maybespace();
+    return item.nospace();
+}
+
 
 #endif // BITCOIN_PROTOCOL_H

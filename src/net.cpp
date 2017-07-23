@@ -389,9 +389,9 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
     }
 
     /// debug print
-    LogPrint("net", "trying connection %s lastseen=%.1fhrs\n",
-        pszDest ? pszDest : addrConnect.ToString(),
-        pszDest ? 0.0 : (double)(GetAdjustedTime() - addrConnect.nTime)/3600.0);
+    logInfo(Log::Net) << Log::precision(1) << Log::Fixed << "trying connection" << (pszDest ? pszDest : addrConnect.ToString())
+            << "lastseen:" << (pszDest ? 0.0 : (double)(GetAdjustedTime() - addrConnect.nTime)/3600.0)
+            <<  "hrs";
 
     // Connect
     SOCKET hSocket;
@@ -433,7 +433,7 @@ void CNode::CloseSocketDisconnect()
     fDisconnect = true;
     if (hSocket != INVALID_SOCKET)
     {
-        LogPrint("net", "disconnecting peer=%d\n", id);
+        logDebug(Log::Net) << "disconnecting peer" << id;
         CloseSocket(hSocket);
     }
 
@@ -452,9 +452,9 @@ void CNode::PushVersion()
     CAddress addrMe = GetLocalAddress(&addr);
     GetRandBytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
     if (fLogIPs)
-        LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), id);
+        logInfo(Log::Net) << "send version message: version" << PROTOCOL_VERSION << "blocks" << nBestHeight << "us" << addrMe << "them" << addrYou << "peer" << id;
     else
-        LogPrint("net", "send version message: version %d, blocks=%d, us=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), id);
+        logDebug(Log::Net) << "send version message: version" << PROTOCOL_VERSION << "blocks" << nBestHeight << "us" << addrMe << "peer" << id;
     PushMessage(NetMsgType::VERSION, PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
                 nLocalHostNonce, Application::userAgent(), nBestHeight, !GetBoolArg("-blocksonly", DEFAULT_BLOCKSONLY));
 }
@@ -669,8 +669,8 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
         if (handled < 0)
                 return false;
 
-        if (msg.in_data && msg.hdr.nMessageSize > Policy::blockSizeAcceptLimit() + 20000) {
-            LogPrint("net", "Oversized message from peer=%i, disconnecting\n", GetId());
+        if (msg.in_data && msg.hdr.nMessageSize > (uint32_t) Policy::blockSizeAcceptLimit() + 20000) {
+            logWarning(Log::Net) << "Oversized message from peer:" << GetId() << "disconnecting";
             return false;
         }
 
@@ -1222,7 +1222,7 @@ void ThreadSocketHandler()
                         {
                             // socket closed gracefully
                             if (!pnode->fDisconnect)
-                                LogPrint("net", "socket closed\n");
+                                logDebug(Log::Net) << "socket closed";
                             pnode->CloseSocketDisconnect();
                         }
                         else if (nBytes < 0)
@@ -2473,9 +2473,9 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     }
 
     if (fLogIPs)
-        LogPrint("net", "Added connection to %s peer=%d\n", addrName, id);
+        logInfo(Log::Net) << "Added connection to" << addrName << "peer" << id;
     else
-        LogPrint("net", "Added connection peer=%d\n", id);
+        logDebug(Log::Net) << "Added connection peer" << id;
 
     // Be shy and don't send version until we hear
     if (hSocket != INVALID_SOCKET && !fInbound)
@@ -2513,7 +2513,7 @@ void CNode::AskFor(const CInv& inv)
         nRequestTime = it->second;
     else
         nRequestTime = 0;
-    LogPrint("net", "askfor %s  %d (%s) peer=%d\n", inv.ToString(), nRequestTime, DateTimeStrFormat("%H:%M:%S", nRequestTime/1000000), id);
+    logDebug(Log::Net) << "askfor" << inv << nRequestTime << DateTimeStrFormat("%H:%M:%S", nRequestTime/1000000) << "peer:" << id;
 
     // Make sure not to reuse time indexes to keep things in the same order
     int64_t nNow = GetTimeMicros() - 1000000;
@@ -2536,7 +2536,7 @@ void CNode::BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSen
     ENTER_CRITICAL_SECTION(cs_vSend);
     assert(ssSend.size() == 0);
     ssSend << CMessageHeader(Params().MessageStart(), pszCommand, 0);
-    LogPrint("net", "sending: %s \n", SanitizeString(pszCommand));
+    logDebug(Log::Net) << "sending:" << SanitizeString(pszCommand);
 }
 
 void CNode::AbortMessage() UNLOCK_FUNCTION(cs_vSend)
@@ -2578,7 +2578,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     assert(ssSend.size () >= CMessageHeader::CHECKSUM_OFFSET + sizeof(nChecksum));
     memcpy((char*)&ssSend[CMessageHeader::CHECKSUM_OFFSET], &nChecksum, sizeof(nChecksum));
 
-    LogPrint("net", "(%d bytes) peer=%d\n", nSize, id);
+    logDebug(Log::Net).nospace() << "(" << nSize << " bytes) peer=" << id;
 
     std::deque<CSerializeData>::iterator it = vSendMsg.insert(vSendMsg.end(), CSerializeData());
     ssSend.GetAndClear(*it);

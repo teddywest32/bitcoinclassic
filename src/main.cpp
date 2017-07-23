@@ -4122,7 +4122,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     const CChainParams& chainparams = Params();
     RandAddSeedPerfmon();
     const bool fReindex = Blocks::DB::instance()->isReindexing();
-    LogPrint("net", "received: %s (%u bytes) peer=%d\n", SanitizeString(strCommand), vRecv.size(), pfrom->id);
+    logDebug(Log::Net) << "received:" << SanitizeString(strCommand) << "bytes:" << vRecv.size() << "peer:" << pfrom->id;
     if (mapArgs.count("-dropmessagestest") && GetRand(atoi(mapArgs["-dropmessagestest"])) == 0)
     {
         LogPrintf("dropmessagestest DROPPING RECV MESSAGE\n");
@@ -4389,7 +4389,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             pfrom->AddInventoryKnown(inv);
 
             bool fAlreadyHave = AlreadyHave(inv);
-            LogPrint("net", "got inv: %s  %s peer=%d\n", inv.ToString(), fAlreadyHave ? "have" : "new", pfrom->id);
+            logDebug(Log::Net) << "got inv:" << inv << (fAlreadyHave ? "have" : "new") << "peer:" << pfrom->id;
 
             if (inv.type == MSG_BLOCK) {
                 UpdateBlockAvailability(pfrom->GetId(), inv.hash);
@@ -4546,7 +4546,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         LOCK(cs_main);
         if (IsInitialBlockDownload() && !pfrom->fWhitelisted) {
-            LogPrint("net", "Ignoring getheaders from peer=%d because node is in initial block download\n", pfrom->id);
+            logDebug(Log::Net) << "Ignoring getheaders from peer=" <<pfrom->id << "because node is in initial block download";
             return true;
         }
 
@@ -4805,12 +4805,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     }
                     vGetData.push_back(CInv(MSG_BLOCK, pindex->GetBlockHash()));
                     MarkBlockAsInFlight(pfrom->GetId(), pindex->GetBlockHash(), chainparams.GetConsensus(), pindex);
-                    LogPrint("net", "Requesting block %s from  peer=%d\n",
-                            pindex->GetBlockHash().ToString(), pfrom->id);
+                    logDebug(Log::Net) << "Requesting block" << pindex->GetBlockHash() << "from  peer:" << pfrom->id;
                 }
                 if (vGetData.size() > 1) {
-                    LogPrint("net", "Downloading blocks toward %s (%d) via headers direct fetch\n",
-                            pindexLast->GetBlockHash().ToString(), pindexLast->nHeight);
+                    logDebug(Log::Net) << "Downloading blocks toward" << pindexLast->GetBlockHash() << "height:" << pindexLast->nHeight;
                 }
                 if (vGetData.size() > 0) {
                     pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
@@ -4898,7 +4896,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         vRecv >> thinBlockTx;
 
         CInv inv(MSG_XTHINBLOCK, thinBlockTx.blockhash);
-        LogPrint("net", "received blocktxs for %s peer=%d\n", inv.hash.ToString(), pfrom->id);
+        logDebug(Log::Net) << "received blocktxs for" << inv.hash << "peer" << pfrom->id;
         if (!pfrom->mapThinBlocksInFlight.count(inv.hash)) {
             LogPrint("thin", "ThinblockTx received but it was either not requested or it was beaten by another block %s  peer=%d\n", inv.hash.ToString(), pfrom->id);
             return true;
@@ -5050,7 +5048,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         }
 
         CInv inv(MSG_BLOCK, block.GetHash());
-        LogPrint("net", "received block %s peer=%d\n", inv.hash.ToString(), pfrom->id);
+        logDebug(Log::Net) << "received block" << inv << "peer" << pfrom->id;
 
         pfrom->AddInventoryKnown(inv);
 
@@ -5321,7 +5319,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     else
     {
         // Ignore unknown commands for extensibility
-        LogPrint("net", "Unknown command \"%s\" from peer=%d\n", SanitizeString(strCommand), pfrom->id);
+        logDebug(Log::Net) << "Unknown command" << SanitizeString(strCommand) << "from peer:" << pfrom->id;
     }
 
 
@@ -5565,7 +5563,7 @@ bool SendMessages(CNode* pto)
                    got back an empty response.  */
                 if (pindexStart->pprev)
                     pindexStart = pindexStart->pprev;
-                LogPrint("net", "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->id, pto->nStartingHeight);
+                logDebug(Log::Net) << "initial getheaders" << pindexStart->nHeight << "to peer:" << pto->id <<"startheight:" << pto->nStartingHeight;
                 pto->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexStart), uint256());
             }
         }
@@ -5798,8 +5796,7 @@ bool SendMessages(CNode* pto)
                         }
                         else {
                             vGetData.push_back(CInv(MSG_BLOCK, pindex->GetBlockHash()));
-                            LogPrint("net", "Requesting block %s (%d) from peer %s (%d)\n", pindex->GetBlockHash().ToString(),
-                                     pindex->nHeight, pto->addrName.c_str(), pto->id);
+                            logDebug(Log::Net) << "Requesting block" << pindex->GetBlockHash() << pindex->nHeight << "from peer" << pto->addrName << pto->id;
                         }
                         MarkBlockAsInFlight(pto->GetId(), pindex->GetBlockHash(), consensusParams, pindex);
                     }
@@ -5807,8 +5804,7 @@ bool SendMessages(CNode* pto)
                 else {
                     vGetData.push_back(CInv(MSG_BLOCK, pindex->GetBlockHash()));
                     MarkBlockAsInFlight(pto->GetId(), pindex->GetBlockHash(), consensusParams, pindex);
-                    LogPrint("net", "Requesting block %s (%d) peer=%d\n", pindex->GetBlockHash().ToString(),
-                                     pindex->nHeight, pto->id);
+                    logDebug(Log::Net) << "Requesting block" << pindex->GetBlockHash() << pindex->nHeight << "from peer" << pto->id;
                 }
                 // BUIP010 Xtreme Thinblocks: end section
             }
@@ -5828,8 +5824,7 @@ bool SendMessages(CNode* pto)
             const CInv& inv = (*pto->mapAskFor.begin()).second;
             if (!AlreadyHave(inv))
             {
-                if (fDebug)
-                    LogPrint("net", "Requesting %s peer=%d\n", inv.ToString(), pto->id);
+                logDebug(Log::Net) << "Requesting" << inv << "peer:" << pto->id;
                 vGetData.push_back(inv);
                 if (vGetData.size() >= 1000)
                 {

@@ -106,6 +106,13 @@ class CNetAddr
         friend class CSubNet;
 };
 
+inline Log::SilentItem operator<<(Log::SilentItem item, const CNetAddr&) { return item; }
+inline Log::Item operator<<(Log::Item item, const CNetAddr&n) {
+    if (item.isEnabled())
+        item << n.ToString();
+    return item.maybespace();
+}
+
 class CSubNet
 {
     protected:
@@ -184,6 +191,14 @@ class CService : public CNetAddr
                  port = ntohs(portN);
         }
 };
+
+inline Log::SilentItem operator<<(Log::SilentItem item, const CService&) { return item; }
+inline Log::Item operator<<(Log::Item item, const CService &s) {
+    if (item.isEnabled())
+        item << s.ToString();
+    return item.maybespace();
+}
+
 
 class proxyType
 {
