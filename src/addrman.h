@@ -51,6 +51,8 @@ private:
     //! remote node knew xthin last time we connected (memory only)
     bool fKnowsXThin;
 
+    bool fKnowsCash; //< remote node is a 'bitcoin-cash' capable node (memory only)
+
     friend class CAddrMan;
 
 public:
@@ -113,6 +115,8 @@ public:
 
     bool getKnowsXThin() const;
     void setKnowsXThin(bool value);
+    bool getKnowsCash() const;
+    void setKnowsCash(bool value);
 };
 
 /** Stochastic address manager
@@ -313,14 +317,14 @@ public:
             }
         }
         nIds = 0;
-        std::set<int> xthinNodes;
+        std::set<int> preferredNodes;
         for (std::map<int, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); ++it) {
             const CAddrInfo &info = (*it).second;
             if (info.fInTried) {
                 assert(nIds != nTried); // this means nTried was wrong, oh ow
                 s << info;
-                if (info.getKnowsXThin())
-                    xthinNodes.insert(nIds);
+                if (info.getKnowsXThin() || info.getKnowsCash())
+                    preferredNodes.insert(nIds);
                 nIds++;
             }
         }
@@ -340,8 +344,8 @@ public:
         }
 
         // Save the index in 'new' nodes which had the flag to indicate it is xthin capable
-        s << (int) xthinNodes.size();
-        for (int id : xthinNodes) {
+        s << (int) preferredNodes.size();
+        for (int id : preferredNodes) {
             s << id;
         }
     }

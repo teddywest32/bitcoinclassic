@@ -1047,9 +1047,12 @@ void ThreadSocketHandler()
 
                     if (pnode->nVersion != 0) {
                         bool xthinCapable = pnode->nServices & NODE_XTHIN;
+                        bool cashCapable = pnode->nServices & NODE_BITCOIN_CASH;
                         CAddrInfo *info = addrman.Find(pnode->addr);
-                        if (info)
+                        if (info) {
                             info->setKnowsXThin(xthinCapable);
+                            info->setKnowsCash(cashCapable);
+                        }
                     }
                 }
             }
@@ -1479,9 +1482,12 @@ void DumpAddresses()
             if (pnode->fDisconnect || pnode->nVersion == 0)
                 continue;
             bool xthinCapable = pnode->nServices & NODE_XTHIN;
+            bool cashCapable = pnode->nServices & NODE_BITCOIN_CASH;
             CAddrInfo *info = addrman.Find(pnode->addr);
-            if (info)
+            if (info) {
                 info->setKnowsXThin(xthinCapable);
+                info->setKnowsCash(cashCapable);
+            }
         }
     }
 
@@ -1544,7 +1550,8 @@ void ThreadOpenConnections()
     }
 
     const int maxOutBound = std::min(MAX_OUTBOUND_CONNECTIONS, nMaxConnections);
-    const int minXThinNodes = std::min(maxOutBound, (int) GetArg("-min-thin-peers", DEFAULT_MIN_THIN_PEERS));
+    const int minXThinNodes = IsThinBlocksEnabled() ? std::min(maxOutBound, (int) GetArg("-min-thin-peers", DEFAULT_MIN_THIN_PEERS)) : 0;
+    const int minCashNodes = Application::uahfChainState() == Application::UAHFDisabled ? 0 : 4;
     // Initiate network connections
     int64_t nStart = GetTime();
     int nDisconnects = 0;
@@ -1560,6 +1567,7 @@ void ThreadOpenConnections()
         // we don't have enough connections to XTHIN capable nodes yet.
         std::set<std::vector<unsigned char> > setConnected;
         int nThinBlockCapable = 0;
+        int cashCapableNodes = 0;
         {
             CNode* ptemp = nullptr;
             int autoConnectedOutboundNodes = 0;
@@ -1572,20 +1580,25 @@ void ThreadOpenConnections()
                     setConnected.insert(pnode->addr.GetGroup());
                     ++autoConnectedOutboundNodes;
 
-                    if (pnode->ThinBlockCapable())
+                    if (minXThinNodes > 0 && pnode->ThinBlockCapable())
                         ++nThinBlockCapable;
+                    else if (minCashNodes > 0 && pnode->nServices & NODE_BITCOIN_CASH)
+                        ++cashCapableNodes;
                     else if (!ptemp)
                         ptemp = pnode;
                 }
             }
 
-            // Disconnect a node that is not XTHIN capable if all outbound slots are full and we
-            // have not yet connected to enough XTHIN nodes.
-            if (ptemp && autoConnectedOutboundNodes >= maxOutBound && nThinBlockCapable < minXThinNodes && IsThinBlocksEnabled()) {
+            // Disconnect a node that is not compatible if all outbound slots are full and we
+            // have not yet connected to enough nodes.
+            if (ptemp && autoConnectedOutboundNodes >= maxOutBound && (nThinBlockCapable < minXThinNodes || cashCapableNodes < minCashNodes)) {
                 ptemp->fDisconnect = true;
                 nDisconnects++;
-                LogPrintf("Not enough thin-block capable peers (%d/%d), disconnecting `%s', id: %d (disconnect-count: %d)\n",
-                          nThinBlockCapable, minXThinNodes, ptemp->cleanSubVer.c_str(), ptemp->id, nDisconnects);
+                logWarning(Log::Net).nospace() << "Not enough capable peers xthin ("
+                                            << nThinBlockCapable << "/" << minXThinNodes
+                                            << "), CASH(" << cashCapableNodes << "/" << minCashNodes <<  ")"
+                                            << " disconnecting `" << ptemp->cleanSubVer << "', id: "
+                                            << ptemp->id << " (disconnect-count: " << nDisconnects << ")";
             }
         }
 

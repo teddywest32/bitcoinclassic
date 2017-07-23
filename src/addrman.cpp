@@ -20,6 +20,16 @@ void CAddrInfo::setKnowsXThin(bool value)
     fKnowsXThin = value;
 }
 
+bool CAddrInfo::getKnowsCash() const
+{
+    return fKnowsCash;
+}
+
+void CAddrInfo::setKnowsCash(bool value)
+{
+    fKnowsCash = value;
+}
+
 int CAddrInfo::GetTriedBucket(const uint256& nKey) const
 {
     uint64_t hash1 = (CHashWriter(SER_GETHASH, 0) << nKey << GetKey()).GetHash().GetCheapHash();
