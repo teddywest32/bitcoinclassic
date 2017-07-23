@@ -48,7 +48,7 @@ BasicTestingSetup::~BasicTestingSetup()
         ECC_Stop();
 }
 
-TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
+TestingSetup::TestingSetup(const std::string& chainName, BlocksDb bdb) : BasicTestingSetup(chainName)
 {
     const CChainParams& chainparams = Params();
 #ifdef ENABLE_WALLET
@@ -56,9 +56,13 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 #endif
         ClearDatadirCache();
         pathTemp = GetTempPath() / strprintf("test_bitcoin_%lu_%i", (unsigned long)GetTime(), (int)(GetRand(100000)));
-        boost::filesystem::create_directories(pathTemp);
+        boost::filesystem::create_directories(pathTemp / "regtest/blocks/index");
+        boost::filesystem::create_directories(pathTemp / "blocks/index");
         mapArgs["-datadir"] = pathTemp.string();
-        Blocks::DB::createTestInstance(1<<20);
+        if (bdb == BlocksDbInMemory)
+            Blocks::DB::createTestInstance(1<<20);
+        else
+            Blocks::DB::createInstance(0, true);
         pcoinsdbview = new CCoinsViewDB(1 << 23, true);
         pcoinsTip = new CCoinsViewCache(pcoinsdbview);
         InitBlockIndex(chainparams);

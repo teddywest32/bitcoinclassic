@@ -62,6 +62,12 @@ Application::Application()
     m_returnCode(0),
     m_closingDown(false)
 {
+    init();
+}
+
+void Application::init()
+{
+    m_closingDown = false;
     for (int i = boost::thread::hardware_concurrency(); i > 0; --i) {
         auto ioservice(m_ioservice);
         m_threads.create_thread([ioservice] {

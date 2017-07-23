@@ -66,3 +66,21 @@ void TxUtils::disallowNewTransactions()
 {
     flexTransActive.store(false);
 }
+
+std::vector<CTransaction> TxUtils::transactionsForBlock(int minSize)
+{
+    CMutableTransaction mtx;
+    TxUtils::RandomTransaction(mtx, TxUtils::AnyOutputCount);
+    for (size_t i = 0; i < mtx.vin.size(); ++i) { // make sure we can actually validate it without the 'non-final' warning.
+        mtx.vin[i].nSequence = CTxIn::SEQUENCE_FINAL;
+    }
+    const CTransaction tx(mtx);
+    const int count = minSize / tx.GetSerializeSize(0, 0) + 1;
+
+    std::vector<CTransaction> answer;
+    answer.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        answer.push_back(tx);
+    }
+    return std::move(answer);
+}

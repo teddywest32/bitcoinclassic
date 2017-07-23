@@ -77,6 +77,10 @@ public:
 
     static bool closingDown();
 
+protected:
+    /// only called from constructor. Useful in unit tests.
+    void init();
+
 private:
     std::shared_ptr<boost::asio::io_service> m_ioservice;
     std::unique_ptr<boost::asio::io_service::work> m_work;

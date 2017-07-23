@@ -5,8 +5,11 @@
 #ifndef BITCOIN_TEST_TRANSACTION_UTILS_H
 #define BITCOIN_TEST_TRANSACTION_UTILS_H
 
+#include <vector>
+
 class CScript;
 struct CMutableTransaction;
+struct CTransaction;
 
 namespace TxUtils {
     void RandomScript(CScript &script);
@@ -21,6 +24,9 @@ namespace TxUtils {
 
     void allowNewTransactions();
     void disallowNewTransactions();
+
+    // create one transaction and repeat it until it fills up the space.
+    std::vector<CTransaction> transactionsForBlock(int minSize);
 }
 
 #endif
