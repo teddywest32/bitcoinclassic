@@ -6,6 +6,7 @@
 
 #include "wallet/wallet.h"
 
+#include <Application.h>
 #include "base58.h"
 #include "checkpoints.h"
 #include "chain.h"
@@ -2145,6 +2146,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletT
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second,CScript()));
 
+                uint32_t nHashType = SIGHASH_ALL;
+                if (Application::uahfChainState() >= Application::UAHFRulesActive)
+                    nHashType |= SIGHASH_FORKID;
+
                 // Sign
                 int nIn = 0;
                 CTransaction txNewConst(txNew);
@@ -2154,7 +2159,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletT
                     const CScript& scriptPubKey = coin.first->vout[coin.second].scriptPubKey;
                     CScript& scriptSigRes = txNew.vin[nIn].scriptSig;
                     if (sign)
-                        signSuccess = ProduceSignature(TransactionSignatureCreator(this, &txNewConst, nIn, coin.first->vout[coin.second].nValue, SIGHASH_ALL), scriptPubKey, scriptSigRes);
+                        signSuccess = ProduceSignature(TransactionSignatureCreator(this, &txNewConst, nIn, coin.first->vout[coin.second].nValue, nHashType), scriptPubKey, scriptSigRes);
                     else
                         signSuccess = ProduceSignature(DummySignatureCreator(this), scriptPubKey, scriptSigRes);
 
