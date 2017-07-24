@@ -303,8 +303,8 @@ public:
     {
         DoPush();
         UniValue array(UniValue::VARR);
-        array.push_back(FormatScript(spendTx.vin[0].scriptSig));
-        array.push_back(FormatScript(creditTx.vout[0].scriptPubKey));
+        array.push_back(TxUtils::FormatScript(spendTx.vin[0].scriptSig));
+        array.push_back(TxUtils::FormatScript(creditTx.vout[0].scriptPubKey));
         array.push_back(FormatScriptFlags(flags));
         array.push_back(comment);
         return array;

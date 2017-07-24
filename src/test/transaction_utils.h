@@ -6,6 +6,7 @@
 #define BITCOIN_TEST_TRANSACTION_UTILS_H
 
 #include <vector>
+#include <string>
 
 class CScript;
 struct CMutableTransaction;
@@ -27,6 +28,8 @@ namespace TxUtils {
 
     // create one transaction and repeat it until it fills up the space.
     std::vector<CTransaction> transactionsForBlock(int minSize);
+
+    std::string FormatScript(const CScript& script);
 }
 
 #endif
