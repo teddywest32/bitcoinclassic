@@ -131,6 +131,16 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == hashes[11]);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFActive);
 
+    /* UAHF spec states;
+     * "activation time": once the MTP of the chain tip is equal to or greater
+     * than this time, the next block must be a valid fork block. The fork block
+     * and subsequent blocks built on it must satisfy the new consensus rules.
+     *
+     * "fork block": the first block built on top of a chain tip whose MTP is
+     * greater than or equal to the activation time.
+     */
+
+    // Defining UAHF starts at 20500 means the tip (being 20600) is our fork-block.
     mapArgs["-uahfstarttime"] = "20500";
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
@@ -138,6 +148,7 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == hashes[11]);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFActive);
 
+    // Defining UAHF starts at 20600 means the tip is the last one before the fork block.
     mapArgs["-uahfstarttime"] = "20600";
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
@@ -145,6 +156,7 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == hashes[11]);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFRulesActive);
 
+    // Check for off-by-one sec
     mapArgs["-uahfstarttime"] = "20601";
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
