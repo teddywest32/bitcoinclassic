@@ -5,6 +5,7 @@
 #include "sendcoinsdialog.h"
 #include "ui_sendcoinsdialog.h"
 
+#include <Application.h>
 #include "addresstablemodel.h"
 #include "bitcoinunits.h"
 #include "clientmodel.h"
@@ -198,6 +199,13 @@ void SendCoinsDialog::on_sendButton_clicked()
 {
     if(!model || !model->getOptionsModel())
         return;
+
+    if (Application::uahfChainState() == Application::UAHFWaiting) {
+        QMessageBox::information(this, tr("Unsafe to create transaction"),
+            "You selected this wallet to operate on the BCC network, which is not active yet. Please wait until activation.",
+            QMessageBox::Ok);
+        return;
+    }
 
     QList<SendCoinsRecipient> recipients;
     bool valid = true;
