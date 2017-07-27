@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "bitcoinunits.h"
+#include <Application.h>
 
 #include "primitives/transaction.h"
 
@@ -38,12 +39,20 @@ bool BitcoinUnits::valid(int unit)
 
 QString BitcoinUnits::name(int unit)
 {
-    switch(unit)
-    {
-    case BTC: return QString("BTC");
-    case mBTC: return QString("mBTC");
-    case uBTC: return QString::fromUtf8("μBTC");
-    default: return QString("???");
+    if (Application::uahfChainState() == Application::UAHFDisabled) {
+        switch(unit) {
+        case BTC: return QString("BTC");
+        case mBTC: return QString("mBTC");
+        case uBTC: return QString::fromUtf8("μBTC");
+        default: return QString("???");
+        }
+    } else {
+        switch(unit) {
+        case BTC: return QString("BCC");
+        case mBTC: return QString("mBCC");
+        case uBTC: return QString::fromUtf8("μBCC");
+        default: return QString("???");
+        }
     }
 }
 
