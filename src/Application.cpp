@@ -1,6 +1,6 @@
 /*
  * This file is part of the bitcoin-classic project
- * Copyright (C) 2016 Tom Zander <tomz@freedommail.ch>
+ * Copyright (C) 2016-2017 Tom Zander <tomz@freedommail.ch>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include "policy/policy.h"
 #include "util.h"
 #include "clientversion.h"
+#include "chainparamsbase.h"
 #include "utilstrencodings.h"
 #include "clientversion.h"
 #include "net.h"
@@ -29,9 +30,6 @@
 
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
-
-// if enabled, this client defaults the fork on.
-#define UAHF_CLIENT 1
 
 // static
 Application * Application::instance()
@@ -87,12 +85,12 @@ void Application::init()
             }
         });
     }
-
-    m_uahfStartTme = std::max<int64_t>(0, GetArg("-uahfstarttime",
-#ifdef UAHF_CLIENT
-                                   1501590000));
+    const std::string chain = ChainNameFromCommandLine();
+    m_uahfStartTme = std::max<int64_t>(0, GetArg("-uahfstarttime", (chain == CBaseChainParams::REGTEST ? 1296688602 :
+#if UAHF_CLIENT
+                                   1501590000)));
 #else
-                                   0));
+                                   0)));
 #endif
     if (m_uahfStartTme == 0)
         m_uahfState = UAHFDisabled;
