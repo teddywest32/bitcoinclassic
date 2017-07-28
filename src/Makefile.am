@@ -164,6 +164,7 @@ BITCOIN_CORE_H = \
   torcontrol.h \
   txdb.h \
   BlocksDB.h \
+  BlocksDB_p.h \
   txmempool.h \
   txorphancache.h \
   ui_interface.h \
