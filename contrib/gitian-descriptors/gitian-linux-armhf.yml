@@ -36,7 +36,7 @@ script: |
   };' > $LINKER_SCRIPT
   WRAP_DIR=$HOME/wrapped
   HOSTS="arm-linux-gnueabihf"
-  CONFIGFLAGS="--enable-glibc-back-compat --enable-reduce-exports --disable-debug-messages"
+  CONFIGFLAGS="--enable-glibc-back-compat --enable-reduce-exports --disable-debug-messages --enable-uahf"
   CONFIGLDFLAGS="-static-libstdc++ -Wl,--version-script=$LINKER_SCRIPT"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="date ar ranlib nm strip"
