@@ -482,7 +482,7 @@ bool Blocks::DB::setUahfForkBlock(const uint256 &blockId)
         if (mi != Blocks::indexMap.end()) {
             const CBlockIndex *bi = mi->second;
             assert(bi);
-            if (bi->pprev && bi->pprev->GetMedianTimePast() >= Application::uahfStartTime() && headerChain().Contains(bi))
+            if (bi->pprev && bi->pprev->GetMedianTimePast() >= Application::uahfStartTime())
                 Application::setUahfChainState(Application::UAHFActive);
         }
     }
