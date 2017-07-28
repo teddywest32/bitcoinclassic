@@ -76,6 +76,8 @@ TestingSetup::TestingSetup(const std::string& chainName, BlocksDb bdb) : BasicTe
         for (int i=0; i < nScriptCheckThreads-1; i++)
             threadGroup.create_thread(&ThreadScriptCheck);
         RegisterNodeSignals(GetNodeSignals());
+    if (chainName == CBaseChainParams::REGTEST)
+        Application::setUahfChainState(Application::UAHFActive);
 }
 
 TestingSetup::~TestingSetup()
