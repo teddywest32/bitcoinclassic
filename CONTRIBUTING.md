@@ -19,7 +19,7 @@ process is described in githubs documentation.
 In classic we follow the well known git branching model where we have a stable
 and a development branch, called master.
 
-## 1.2 (stable branch)
+## 1.3 (stable branch)
 
 Any merge request to this branch is meant to go into the next release. Any
 commits made here will be merged into the master branch by a volunteer.
