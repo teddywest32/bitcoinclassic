@@ -20,7 +20,7 @@
 #include "policy/policy.h"
 #include "util.h"
 #include "clientversion.h"
-#include "chainparamsbase.h"
+#include "chainparams.h"
 #include "utilstrencodings.h"
 #include "clientversion.h"
 #include "net.h"
@@ -85,7 +85,8 @@ void Application::init()
             }
         });
     }
-    const std::string chain = ChainNameFromCommandLine();
+
+    const std::string chain = Params().NetworkIDString();
     m_uahfStartTme = std::max<int64_t>(0, GetArg("-uahfstarttime", (chain == CBaseChainParams::REGTEST ? 1296688602 :
 #if UAHF_CLIENT
                                    1501590000)));
