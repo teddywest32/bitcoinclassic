@@ -287,8 +287,13 @@ void Log::Manager::parseConfig()
         // default.
         d->channels.push_back(new FileLogChannel());
         d->enabledSections[0] = Log::WarningLevel;
-        for (short i = 1000; i <= 20000; i+=1000)
+
+        // while most of the code uses legacy logPrintf, set the log level to exclude those by default.
+        for (short i = 1000; i <= 7000; i+=1000)
             d->enabledSections[i] = Log::CriticalLevel;
+        // These are newer sections.
+        for (short i = 8000; i <= 20000; i+=1000)
+            d->enabledSections[i] = Log::InfoLevel;
     }
 
     // Parse the old fashioned way of enabling/disabling log sections.
