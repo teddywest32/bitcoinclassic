@@ -169,7 +169,7 @@ void reimportBlockFiles(std::vector<boost::filesystem::path> vImportFiles)
     if (fReindex) {
         CImportingNow imp;
         int nFile = 0;
-        while (true) {
+        while (!ShutdownRequested()) {
             CDiskBlockPos pos(nFile, 0);
             if (!boost::filesystem::exists(Blocks::getFilepathForIndex(pos.nFile, "blk")))
                 break; // No block files left to reindex
