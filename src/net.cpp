@@ -409,8 +409,11 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         // Add node
         CNode* pnode = new CNode(hSocket, addrConnect, pszDest ? pszDest : "", false);
-        pnode->AddRef();
+        if (GetBoolArg("-initiatecashconnections", false) && Application::uahfChainState() >= Application::UAHFRulesActive)
+            pnode->isCashNode = true;
+        pnode->PushVersion();
 
+        pnode->AddRef();
         {
             LOCK(cs_vNodes);
             vNodes.push_back(pnode);
@@ -2497,10 +2500,6 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
         logInfo(Log::Net) << "Added connection to" << addrName << "peer" << id;
     else
         logDebug(Log::Net) << "Added connection peer" << id;
-
-    // Be shy and don't send version until we hear
-    if (hSocket != INVALID_SOCKET && !fInbound)
-        PushVersion();
 
     GetNodeSignals().InitializeNode(GetId(), this);
 }

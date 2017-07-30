@@ -5470,6 +5470,14 @@ bool ProcessMessages(CNode* pfrom)
                 }
                 pfrom->isCashNode = true;
             }
+
+            if (GetBoolArg("-flexiblehandshake", true) == false) {
+                // ignore clients that are not using our our net magic headers.
+                if (pfrom->isCashNode != (Application::uahfChainState() != Application::UAHFDisabled)) {
+                    fOk = false;
+                    break;
+                }
+            }
         }
         else {
             if (memcmp(msg.hdr.pchMessageStart, pfrom->magic(), MESSAGE_START_SIZE) != 0) {
