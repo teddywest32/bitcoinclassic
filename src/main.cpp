@@ -4325,11 +4325,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (fLogIPs)
             remoteAddr = ", peeraddr=" + pfrom->addr.ToString();
 
-        LogPrintf("receive version message: [%s] %s: version %d, blocks=%d, us=%s, peer=%d%s\n",
-                  pfrom->addr.ToString().c_str(),
-                  pfrom->cleanSubVer, pfrom->nVersion,
-                  pfrom->nStartingHeight, addrMe.ToString(), pfrom->id,
-                  remoteAddr);
+        logInfo(Log::Net) << "receive version message:" << pfrom->addr << pfrom->cleanSubVer << "version:"
+                          << pfrom->nVersion << "blocks:" << pfrom->nStartingHeight << "us:"
+                          << addrMe << "peer:" << pfrom->id << remoteAddr;
+        if (pfrom->isCashNode)
+            logInfo(Log::Net) << "peer" << pfrom->GetId() << "uses CASH message-headers";
 
         int64_t nTimeOffset = nTime - GetTime();
         pfrom->nTimeOffset = nTimeOffset;
@@ -5460,15 +5460,28 @@ bool ProcessMessages(CNode* pfrom)
         it++;
 
         // Scan for message start
-        if (memcmp(msg.hdr.pchMessageStart, chainparams.MessageStart(), MESSAGE_START_SIZE) != 0) {
-            LogPrintf("PROCESSMESSAGE: INVALID MESSAGESTART %s peer=%d\n", SanitizeString(msg.hdr.GetCommand()), pfrom->id);
-            fOk = false;
-            break;
+        if (pfrom->nVersion == 0) { // uninitialized.
+            if (memcmp(msg.hdr.pchMessageStart, chainparams.MessageStart(), MESSAGE_START_SIZE) != 0) {
+                if (memcmp(msg.hdr.pchMessageStart, chainparams.CashMessageStart(), MESSAGE_START_SIZE) != 0) {
+                    logWarning(Log::Net) << "ProcessMessage: handshake invalid messageStart"
+                                         << SanitizeString(msg.hdr.GetCommand()) << "peer:" << pfrom->id;
+                    fOk = false;
+                    break;
+                }
+                pfrom->isCashNode = true;
+            }
+        }
+        else {
+            if (memcmp(msg.hdr.pchMessageStart, pfrom->magic(), MESSAGE_START_SIZE) != 0) {
+                logWarning(Log::Net) << "PROCESSMESSAGE: INVALID MESSAGESTART" << SanitizeString(msg.hdr.GetCommand()) << "peer:" << pfrom->id;
+                fOk = false;
+                break;
+            }
         }
 
         // Read header
         CMessageHeader& hdr = msg.hdr;
-        if (!hdr.IsValid(chainparams.MessageStart()))
+        if (!hdr.IsValid(pfrom->magic()))
         {
             LogPrintf("PROCESSMESSAGE: ERRORS IN HEADER %s peer=%d\n", SanitizeString(hdr.GetCommand()), pfrom->id);
             continue;

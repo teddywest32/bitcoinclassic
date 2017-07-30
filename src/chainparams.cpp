@@ -116,6 +116,12 @@ public:
         pchMessageStart[1] = 0xbe;
         pchMessageStart[2] = 0xb4;
         pchMessageStart[3] = 0xd9;
+
+        pchMessageStartCash[0] = 0XE3;
+        pchMessageStartCash[1] = 0XE1;
+        pchMessageStartCash[2] = 0XF3;
+        pchMessageStartCash[3] = 0XE8;
+
         nDefaultPort = DEFAULT_MAINNET_PORT;
         nMaxTipAge = 24 * 60 * 60;
         nPruneAfterHeight = 100000;
@@ -213,10 +219,16 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = 1456790400; // March 1st, 2016
         consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = 1493596800; // May 1st, 2017
 
-        pchMessageStart[0] = 0x0b;
+        pchMessageStart[0] = 0x0B;
         pchMessageStart[1] = 0x11;
         pchMessageStart[2] = 0x09;
         pchMessageStart[3] = 0x07;
+
+        pchMessageStartCash[0] = 0xF4;
+        pchMessageStartCash[1] = 0xE5;
+        pchMessageStartCash[2] = 0xF3;
+        pchMessageStartCash[3] = 0xF4;
+
         nDefaultPort = DEFAULT_TESTNET_PORT;
         nMaxTipAge = 0x7fffffff;
         nPruneAfterHeight = 1000;
@@ -334,6 +346,12 @@ public:
         pchMessageStart[1] = 0xbf;
         pchMessageStart[2] = 0xb5;
         pchMessageStart[3] = 0xda;
+
+        pchMessageStartCash[0] = 0xDA;
+        pchMessageStartCash[1] = 0xB5;
+        pchMessageStartCash[2] = 0xBF;
+        pchMessageStartCash[3] = 0xFA;
+
         nMaxTipAge = 24 * 60 * 60;
         nDefaultPort = 18444;
         nPruneAfterHeight = 1000;

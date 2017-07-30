@@ -57,6 +57,7 @@ public:
 
     const Consensus::Params& GetConsensus() const { return consensus; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
+    const CMessageHeader::MessageStartChars& CashMessageStart() const { return pchMessageStartCash; }
     int GetDefaultPort() const { return nDefaultPort; }
 
     const CBlock& GenesisBlock() const { return genesis; }
@@ -83,6 +84,7 @@ protected:
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
+    CMessageHeader::MessageStartChars pchMessageStartCash;
     int nDefaultPort;
     long nMaxTipAge;
     uint64_t nPruneAfterHeight;

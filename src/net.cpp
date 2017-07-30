@@ -459,6 +459,13 @@ void CNode::PushVersion()
                 nLocalHostNonce, Application::userAgent(), nBestHeight, !GetBoolArg("-blocksonly", DEFAULT_BLOCKSONLY));
 }
 
+const CMessageHeader::MessageStartChars &CNode::magic() const
+{
+    if (isCashNode)
+        return Params().CashMessageStart();
+    return Params().MessageStart();
+}
+
 
 
 
@@ -655,7 +662,7 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
         // get current incomplete message, or create a new one
         if (vRecvMsg.empty() ||
             vRecvMsg.back().complete())
-            vRecvMsg.push_back(CNetMessage(Params().MessageStart(), SER_NETWORK, nRecvVersion));
+            vRecvMsg.push_back(CNetMessage(magic(), SER_NETWORK, nRecvVersion));
 
         CNetMessage& msg = vRecvMsg.back();
 
@@ -2471,6 +2478,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     nPingUsecStart = 0;
     nPingUsecTime = 0;
     fPingQueued = false;
+    isCashNode = false;
     nMinPingUsecTime = std::numeric_limits<int64_t>::max();
     thinBlockWaitingForTxns = -1;
 
@@ -2548,7 +2556,7 @@ void CNode::BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSen
 {
     ENTER_CRITICAL_SECTION(cs_vSend);
     assert(ssSend.size() == 0);
-    ssSend << CMessageHeader(Params().MessageStart(), pszCommand, 0);
+    ssSend << CMessageHeader(magic(), pszCommand, 0);
     logDebug(Log::Net) << "sending:" << SanitizeString(pszCommand);
 }
 
