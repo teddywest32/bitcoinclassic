@@ -19,10 +19,11 @@
 #include <Application.h>
 #include <Message.h>
 #include <streaming/BufferPool.h>
+#include "test_bitcoin.h"
 
 #include <boost/test/auto_unit_test.hpp>
 
-BOOST_AUTO_TEST_SUITE(Connections)
+BOOST_FIXTURE_TEST_SUITE(Connections, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(BigMessage)
 {
@@ -32,8 +33,8 @@ BOOST_AUTO_TEST_CASE(BigMessage)
     std::list<NetworkConnection> stash;
     int messageSize = -1;
 
-    Application app;
-    NetworkManager server(app.ioService());
+    MockApplication::doInit();
+    NetworkManager server(Application::instance()->ioService());
     server.bind(boost::asio::ip::tcp::endpoint(localhost, PORT), [&stash, &messageSize](NetworkConnection &connection) {
         connection.setOnIncomingMessage([&messageSize](const Message &message) {
             messageSize = message.body().size();
@@ -42,7 +43,7 @@ BOOST_AUTO_TEST_CASE(BigMessage)
         stash.push_back(std::move(connection));
     });
 
-    NetworkManager client(app.ioService());
+    NetworkManager client(Application::instance()->ioService());
     EndPoint ep;
     ep.announcePort = PORT;
     ep.ipAddress = localhost;

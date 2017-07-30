@@ -37,6 +37,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         ECC_Start();
         SetupEnvironment();
         SetupNetworking();
+        mapArgs.clear();
         mapArgs["checkblockindex"] = "1";
         SelectParams(chainName);
         noui_connect();
@@ -76,6 +77,8 @@ TestingSetup::TestingSetup(const std::string& chainName, BlocksDb bdb) : BasicTe
         for (int i=0; i < nScriptCheckThreads-1; i++)
             threadGroup.create_thread(&ThreadScriptCheck);
         RegisterNodeSignals(GetNodeSignals());
+
+    MockApplication::doInit();
     if (chainName == CBaseChainParams::REGTEST)
         Application::setUahfChainState(Application::UAHFActive);
 }
