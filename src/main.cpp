@@ -1102,8 +1102,18 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState &state, const C
         }
 
         uint32_t scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-        if (Application::uahfChainState() >= Application::UAHFRulesActive)
+        if (Application::uahfChainState() >= Application::UAHFRulesActive) {
+            // reject in memory pool transactions that use the OP_RETURN anti-replay ID.
+            // Remove this code after the sunset height has been reached.
+            const auto consensusParams = Params().GetConsensus();
+            if (chainActive.Height() <= consensusParams.antiReplayOpReturnSunsetHeight) {
+                for (const CTxOut &o : tx.vout) {
+                    if (o.scriptPubKey.isCommitment(consensusParams.antiReplayOpReturnCommitment))
+                        return false;
+                }
+            }
             scriptVerifyFlags |= SCRIPT_ENABLE_SIGHASH_FORKID;
+        }
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
