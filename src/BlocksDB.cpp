@@ -372,8 +372,15 @@ bool Blocks::DB::CacheAllBlockInfos()
     }
 
     if (Application::uahfChainState() != Application::UAHFDisabled) {
-        Read(DB_UAHF_FORK_BLOCK, d->uahfStartBlock);
-        setUahfForkBlock(d->uahfStartBlock);
+        uint256 uahfStartBlockId;
+        Read(DB_UAHF_FORK_BLOCK, uahfStartBlockId);
+        if (!uahfStartBlockId.IsNull()) {
+            auto mi = Blocks::indexMap.find(uahfStartBlockId);
+            if (mi != Blocks::indexMap.end()) {
+                d->uahfStartBlock = mi->second;
+                d->updateUahfProperties();
+            }
+        }
 
         if (Application::uahfChainState() != Application::UAHFActive) {
             auto bi = chainActive.Tip();
@@ -469,27 +476,23 @@ const std::list<CBlockIndex *> &Blocks::DB::headerChainTips()
     return d->headerChainTips;
 }
 
-bool Blocks::DB::setUahfForkBlock(const uint256 &blockId)
+bool Blocks::DB::setUahfForkBlock(CBlockIndex *index)
 {
-    bool writeOk = true;
-    if (d->uahfStartBlock != blockId) {
-        d->uahfStartBlock = blockId;
-        writeOk = Write(DB_UAHF_FORK_BLOCK, d->uahfStartBlock);
-    }
+    assert(index);
+    d->uahfStartBlock = index;
+    d->updateUahfProperties();
 
-    if (writeOk && !d->uahfStartBlock.IsNull()) {
-        auto mi = Blocks::indexMap.find(d->uahfStartBlock);
-        if (mi != Blocks::indexMap.end()) {
-            const CBlockIndex *bi = mi->second;
-            assert(bi);
-            if (bi->pprev && bi->pprev->GetMedianTimePast() >= Application::uahfStartTime())
-                Application::setUahfChainState(Application::UAHFActive);
-        }
-    }
-    return writeOk;
+    return Write(DB_UAHF_FORK_BLOCK, d->uahfStartBlock->GetBlockHash());
 }
 
-const uint256 &Blocks::DB::uahfForkBlock() const
+void Blocks::DBPrivate::updateUahfProperties()
+{
+    assert(uahfStartBlock);
+    if (uahfStartBlock->pprev && uahfStartBlock->pprev->GetMedianTimePast() >= Application::uahfStartTime())
+        Application::setUahfChainState(Application::UAHFActive);
+}
+
+CBlockIndex *Blocks::DB::uahfForkBlock() const
 {
     return d->uahfStartBlock;
 }
@@ -537,6 +540,7 @@ boost::filesystem::path Blocks::getFilepathForIndex(int fileIndex, const char *p
 ///////////////////////////////////////////////
 
 Blocks::DBPrivate::DBPrivate()
-    : isReindexing(false)
+    : isReindexing(false),
+      uahfStartBlock(nullptr)
 {
 }

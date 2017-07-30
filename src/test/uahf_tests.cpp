@@ -25,6 +25,7 @@
 #include <chainparams.h>
 #include <primitives/transaction.h>
 #include <main.h>
+#include <consensus/merkle.h>
 #include <consensus/validation.h>
 
 #include <vector>
@@ -51,12 +52,14 @@ static CBlockIndex *createBlockIndex(CBlockIndex *prev, int height, int time, ui
     return index;
 }
 
-static CBlock createBlock(CBlockIndex *parent, const std::vector<CTransaction>& txns)
+static CBlock createBlock(CBlockIndex *parent, const std::vector<CTransaction>& txns, const std::vector<unsigned char> &msg = std::vector<unsigned char>())
 {
     CMutableTransaction coinbase;
     coinbase.vin.resize(1);
     coinbase.vout.resize(1);
     coinbase.vin[0].scriptSig = CScript() << (parent->nHeight + 1) << OP_0;
+    if (!msg.empty())
+        coinbase.vin[0].scriptSig << msg;
     coinbase.vout[0].nValue = 50 * COIN;
 
     CBlock block;
@@ -71,6 +74,12 @@ static CBlock createBlock(CBlockIndex *parent, const std::vector<CTransaction>& 
     for (const CTransaction &tx : txns) {
         block.vtx.push_back(tx);
     }
+
+    // make it actually valid
+    block.hashMerkleRoot = BlockMerkleRoot(block);
+    do {
+        ++block.nNonce;
+    } while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus()));
 
     return block;
 }
@@ -100,7 +109,7 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFWaiting);
     BOOST_CHECK_EQUAL(Application::uahfStartTime(), 12352);
 
-    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == uint256());
+    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == nullptr);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFWaiting);
 
     // we use the MTP, which uses 11 blocks, so make sure we actually have those
@@ -115,20 +124,22 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     chainActive.SetTip(tip);
     // tip GMTP is 20600, the one before 20500
 
-    Blocks::DB::instance()->setUahfForkBlock(hashes[11]);
+    Blocks::DB::instance()->setUahfForkBlock(tip);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFActive);
+    BOOST_CHECK(hashes[11] == tip->GetBlockHash());
 
     mapArgs["-uahfstarttime"] = "0";
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
-    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == uint256());
+    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == nullptr);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFDisabled);
 
     mapArgs["-uahfstarttime"] = "12352";
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
     Blocks::DB::instance()->CacheAllBlockInfos();
-    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == hashes[11]);
+    logDebug() << Blocks::DB::instance()->uahfForkBlock()->GetBlockHash() << hashes[11];
+    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock()->GetBlockHash() == hashes[11]);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFActive);
 
     /* UAHF spec states;
@@ -145,7 +156,7 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
     Blocks::DB::instance()->CacheAllBlockInfos();
-    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == hashes[11]);
+    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock()->GetBlockHash() == hashes[11]);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFActive);
 
     // Defining UAHF starts at 20600 means the tip is the last one before the fork block.
@@ -153,7 +164,7 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
     Blocks::DB::instance()->CacheAllBlockInfos();
-    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == hashes[11]);
+    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock()->GetBlockHash() == hashes[11]);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFRulesActive);
 
     // Check for off-by-one sec
@@ -161,7 +172,7 @@ BOOST_AUTO_TEST_CASE(Test_Enabling)
     MockApplication::doInit();
     Blocks::DB::createInstance(0, false);
     Blocks::DB::instance()->CacheAllBlockInfos();
-    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock() == hashes[11]);
+    BOOST_CHECK(Blocks::DB::instance()->uahfForkBlock()->GetBlockHash() == hashes[11]);
     BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFWaiting);
 }
 
@@ -289,6 +300,56 @@ BOOST_AUTO_TEST_CASE(Test_isCommitment) {
     const Consensus::Params &params = Params().GetConsensus();
     s = CScript() << OP_RETURN << params.antiReplayOpReturnCommitment;
     BOOST_CHECK(s.isCommitment(params.antiReplayOpReturnCommitment));
+}
+
+BOOST_AUTO_TEST_CASE(Test_rollbackProtection)
+{
+    // create 20 block.
+    CBlockIndex *tip = chainActive.Tip();
+    BOOST_CHECK_EQUAL(tip->nHeight, 0);
+    mapArgs["-uahfstarttime"] = "0"; // turn off UAHF
+    MockApplication::doInit();
+
+    std::vector<CTransaction> transactions;
+    for (int i = 0; i < 20; ++i) {
+        CBlock block = createBlock(tip, transactions);
+        CValidationState state;
+        ProcessNewBlock(state, Params(), NULL, &block, true, NULL);
+
+        auto it = Blocks::indexMap.find(block.GetHash());
+        BOOST_CHECK(it != Blocks::indexMap.end());
+        if (it != Blocks::indexMap.end()) {
+            tip = it->second;
+        } else {
+            break;
+        }
+    }
+
+    BOOST_CHECK_EQUAL(chainActive.Height(), 20);
+    mapArgs["-uahfstarttime"] = "1296688702";
+    MockApplication::doInit();
+    Blocks::DB::instance()->setUahfForkBlock(tip); // pretend our last one was the fork-block.
+    BOOST_CHECK_EQUAL(Application::uahfChainState(), Application::UAHFActive);
+
+    std::vector<unsigned char> message;// to avoid the same identical blocks being mined, add a message.
+    message.push_back('x');
+    // now create a chain-split. Small blocks from before the activation block.
+    tip = chainActive[17];
+    for (int i = 0; i < 10; ++i) {
+        CBlock block = createBlock(tip, transactions, message);
+        CValidationState state;
+        ProcessNewBlock(state, Params(), NULL, &block, true, NULL);
+
+        auto it = Blocks::indexMap.find(block.GetHash());
+        if (it != Blocks::indexMap.end()) {
+            tip = it->second;
+        } else {
+            break;
+        }
+    }
+
+    // we should not have had a re-org
+    BOOST_CHECK_EQUAL(chainActive.Height(), 20);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

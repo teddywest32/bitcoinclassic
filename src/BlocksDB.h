@@ -93,8 +93,8 @@ public:
     const CChain &headerChain();
     const std::list<CBlockIndex*> & headerChainTips();
 
-    const uint256 &uahfForkBlock() const;
-    bool setUahfForkBlock(const uint256 &blockId);
+    CBlockIndex *uahfForkBlock() const;
+    bool setUahfForkBlock(CBlockIndex *index);
 
 private:
     static DB *s_instance;

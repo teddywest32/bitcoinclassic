@@ -2219,7 +2219,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     } else if (Application::uahfChainState() == Application::UAHFRulesActive && pindex->pprev->GetMedianTimePast() >= Application::uahfStartTime()) {
         logInfo(8002) << "UAHF block found that activates the chain" << block.GetHash();
         // enable UAHF (aka BCC) on first block after the calculated timestamp
-        Blocks::DB::instance()->setUahfForkBlock(block.GetHash()); // this will update Application::uahfChainState
+        Blocks::DB::instance()->setUahfForkBlock(pindex); // this will update Application::uahfChainState
     }
 
 
@@ -2477,6 +2477,17 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
             return AbortNode(state, "Failed to read block");
         pblock = &block;
     }
+
+    CBlockIndex *uahfForkBlock = Blocks::DB::instance()->uahfForkBlock();
+    if (uahfForkBlock && uahfForkBlock->nHeight == pindexNew->nHeight) { // this is a new potential fork-block.
+        // The uahf fork-block has to be larger than 1MB.
+        const uint32_t minBlockSize = Params().GenesisBlock().nTime == Application::uahfStartTime() // no bigger block in default regtest setup.
+                && Params().NetworkIDString() == CBaseChainParams::REGTEST ? 0 : MAX_BLOCK_SIZE + 1;
+        const std::uint32_t blockSize = ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION);
+        if (blockSize < minBlockSize)
+             return false;
+    }
+
     // Apply the block atomically to the chain state.
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
@@ -3165,8 +3176,8 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
                 // If UAHF is enabled for the curent block, but not for the previous
                 // block, we must check that the block is larger than 1MB.
                 const uint32_t minBlockSize = Params().GenesisBlock().nTime == Application::uahfStartTime() // no bigger block in default regtest setup.
-                        && Params().NetworkIDString() == CBaseChainParams::REGTEST ? 0 : MAX_BLOCK_SIZE;
-                if (blockSize <= minBlockSize)
+                        && Params().NetworkIDString() == CBaseChainParams::REGTEST ? 0 : MAX_BLOCK_SIZE + 1;
+                if (blockSize < minBlockSize)
                      return state.DoS(100, false, REJECT_INVALID, "bad-blk-too-small", false, "size limits failed");
             }
 

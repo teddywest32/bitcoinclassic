@@ -31,11 +31,13 @@ class DBPrivate {
 public:
     DBPrivate();
 
+    void updateUahfProperties();
+
     bool isReindexing;
 
     CChain headersChain;
     std::list<CBlockIndex*> headerChainTips;
-    uint256 uahfStartBlock;
+    CBlockIndex *uahfStartBlock;
 };
 }
 
