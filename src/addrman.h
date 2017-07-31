@@ -75,6 +75,7 @@ public:
         nRefCount = 0;
         fInTried = false;
         fKnowsXThin = false;
+        fKnowsCash = false;
         nRandomPos = -1;
     }
 
@@ -439,6 +440,7 @@ public:
                     auto info = mapInfo.find(index);
                     if (info != mapInfo.end()) {
                         info->second.setKnowsXThin(true);
+                        info->second.setKnowsCash(true);
                     } else {
                         LogPrintf("CAddMan: Warning, loading priority address out of range; %d\n", index);
                     }
