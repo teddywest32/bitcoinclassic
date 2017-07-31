@@ -250,13 +250,13 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
                     }
                     //Use same random value to have same hash and be a true duplicate
                     tx.vout[0].nValue = coinbaseIt->second;
-                    assert(tx.GetHash() == coinbaseIt->first);
+                    BOOST_CHECK(tx.GetHash() == coinbaseIt->first);
                     duplicateids.insert(coinbaseIt->first);
                 }
                 else {
                     coinbaseids[tx.GetHash()] = tx.vout[0].nValue;
                 }
-                assert(CTransaction(tx).IsCoinBase());
+                BOOST_CHECK(CTransaction(tx).IsCoinBase());
             }
             // 9/10 times create a regular tx
             else {
@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
                 if (duplicateids.count(prevouthash))
                     spent_a_duplicate_coinbase = true;
 
-                assert(!CTransaction(tx).IsCoinBase());
+                BOOST_CHECK(!CTransaction(tx).IsCoinBase());
             }
             // Track this tx to possibly spend later
             alltxids.insert(tx.GetHash());

@@ -273,10 +273,10 @@ public:
 
     TestBuilder& EditPush(unsigned int pos, const std::string& hexin, const std::string& hexout)
     {
-        assert(havePush);
+        BOOST_CHECK(havePush);
         std::vector<unsigned char> datain = ParseHex(hexin);
         std::vector<unsigned char> dataout = ParseHex(hexout);
-        assert(pos + datain.size() <= push.size());
+        BOOST_CHECK(pos + datain.size() <= push.size());
         BOOST_CHECK_MESSAGE(std::vector<unsigned char>(push.begin() + pos, push.begin() + pos + datain.size()) == datain, comment);
         push.erase(push.begin() + pos, push.begin() + pos + datain.size());
         push.insert(push.begin() + pos, dataout.begin(), dataout.end());

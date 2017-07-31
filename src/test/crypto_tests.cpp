@@ -73,9 +73,9 @@ void TestAES128(const std::string &hexkey, const std::string &hexin, const std::
     std::vector<unsigned char> correctout = ParseHex(hexout);
     std::vector<unsigned char> buf, buf2;
 
-    assert(key.size() == 16);
-    assert(in.size() == 16);
-    assert(correctout.size() == 16);
+    BOOST_CHECK(key.size() == 16);
+    BOOST_CHECK(in.size() == 16);
+    BOOST_CHECK(correctout.size() == 16);
     AES128Encrypt enc(&key[0]);
     buf.resize(correctout.size());
     buf2.resize(correctout.size());
@@ -93,9 +93,9 @@ void TestAES256(const std::string &hexkey, const std::string &hexin, const std::
     std::vector<unsigned char> correctout = ParseHex(hexout);
     std::vector<unsigned char> buf;
 
-    assert(key.size() == 32);
-    assert(in.size() == 16);
-    assert(correctout.size() == 16);
+    BOOST_CHECK(key.size() == 32);
+    BOOST_CHECK(in.size() == 16);
+    BOOST_CHECK(correctout.size() == 16);
     AES256Encrypt enc(&key[0]);
     buf.resize(correctout.size());
     enc.Encrypt(&buf[0], &in[0]);

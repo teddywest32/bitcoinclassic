@@ -95,7 +95,7 @@ void RunTest(const TestVector &test) {
 
         CBitcoinExtKey b58keyDecodeCheck(derive.prv);
         CExtKey checkKey = b58keyDecodeCheck.GetKey();
-        assert(checkKey == key); //ensure a base58 decoded key also matches
+        BOOST_CHECK(checkKey == key); //ensure a base58 decoded key also matches
 
         // Test public key
         CBitcoinExtPubKey b58pubkey; b58pubkey.SetKey(pubkey);
@@ -103,7 +103,7 @@ void RunTest(const TestVector &test) {
 
         CBitcoinExtPubKey b58PubkeyDecodeCheck(derive.pub);
         CExtPubKey checkPubKey = b58PubkeyDecodeCheck.GetKey();
-        assert(checkPubKey == pubkey); //ensure a base58 decoded pubkey also matches
+        BOOST_CHECK(checkPubKey == pubkey); //ensure a base58 decoded pubkey also matches
 
         // Derive new keys
         CExtKey keyNew;
