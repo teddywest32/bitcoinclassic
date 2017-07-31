@@ -157,7 +157,7 @@ void Intro::setDataDirectory(const QString &dataDir)
 
 QString Intro::getDefaultDataDirectory()
 {
-    return GUIUtil::boostPathToQString(GetDefaultDataDir());
+    return GUIUtil::boostPathToQString(GetDefaultDataDir(false));
 }
 
 void Intro::pickDataDirectory()

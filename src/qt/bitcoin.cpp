@@ -50,6 +50,7 @@
 #include <QTimer>
 #include <QTranslator>
 #include <QSslConfiguration>
+#include <datadirmigration.h>
 
 #if defined(QT_STATICPLUGIN)
 #include <QtPlugin>
@@ -586,12 +587,28 @@ int main(int argc, char *argv[])
 
     /// 6. Determine availability of data directory and parse bitcoin.conf
     /// - Do not call GetDataDir(true) before this step finishes
-    if (!boost::filesystem::is_directory(GetDataDir(false)))
-    {
+    std::string dd = GetArg("-datadir", "");
+    if (!dd.empty()) {
+        auto path = boost::filesystem::system_complete(dd);
+        if (!boost::filesystem::is_directory(path)) {
+            QMessageBox::critical(0, QObject::tr("Bitcoin Classic"),
+                                  QObject::tr("Error: Specified data directory \"%1\" does not exist.")
+                                  .arg(QString::fromStdString(dd)));
+            return 1;
+        }
+    }
+    DatadirMigration migration; // for Bitcoin Cash
+    try {
+        migration.migrateToCashIfNeeded();
+    } catch (const std::exception &e) {
+        logFatal(6001) << "Failed to migrate" << e;
         QMessageBox::critical(0, QObject::tr("Bitcoin Classic"),
-                              QObject::tr("Error: Specified data directory \"%1\" does not exist.").arg(QString::fromStdString(mapArgs["-datadir"])));
+                              QObject::tr("Failed to migrate data dir. Please check logfile in 'to' dir.\nFrom: %1\nTo: %2")
+                              .arg(QString::fromStdString(migration.from())).arg(QString::fromStdString(migration.to())));
         return 1;
     }
+
+    migration.updateConfig();
     try {
         ReadConfigFile(mapArgs, mapMultiArgs);
     } catch (const std::exception& e) {

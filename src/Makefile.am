@@ -103,6 +103,7 @@ BITCOIN_CORE_H = \
   consensus/transactionv4.h \
   core_io.h \
   core_memusage.h \
+  datadirmigration.h \
   hash.h \
   httprpc.h \
   httpserver.h \
@@ -295,6 +296,7 @@ libbitcoin_common_a_SOURCES = \
   consensus/merkle.cpp \
   core_read.cpp \
   core_write.cpp \
+  datadirmigration.cpp \
   hash.cpp \
   key.cpp \
   keystore.cpp \

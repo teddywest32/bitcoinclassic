@@ -277,16 +277,19 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
     fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
 }
 
-boost::filesystem::path GetDefaultDataDir()
+boost::filesystem::path GetDefaultDataDir(bool useCashName)
 {
     namespace fs = boost::filesystem;
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Bitcoin
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Bitcoin
+    // Windows: C:\Users\Username\AppData\Roaming\Bitcoin
     // Mac: ~/Library/Application Support/Bitcoin
     // Unix: $XDG_DATA_HOME/Bitcoin (fall back to ~/.bitcoin if it exists)
+
+    // replace "bitcoin" above with "bitcoincash" for the uahf fork.
+    std::string dirName = useCashName ? "BitcoinCash" : "Bitcoin";
+
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Bitcoin";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / dirName;
 #else
     fs::path pathHome;
     char* pszHome = getenv("HOME");
@@ -299,7 +302,7 @@ boost::filesystem::path GetDefaultDataDir()
     return pathHome / "Library/Application Support/Bitcoin";
 #else
     // Unix
-    fs::path pathLegacy = pathHome / ".bitcoin";
+    fs::path pathLegacy = pathHome / (useCashName ? ".bitcoincash" : ".bitcoin");
     if (fs::exists(pathLegacy))
         return pathLegacy;
 
@@ -310,7 +313,7 @@ boost::filesystem::path GetDefaultDataDir()
     else
         pathDataHome = fs::path(pszDataHome);
 
-    return pathDataHome / "Bitcoin";
+    return pathDataHome / dirName;
 #endif
 #endif
 }
@@ -339,7 +342,7 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
             return path;
         }
     } else {
-        path = GetDefaultDataDir();
+        path = GetDefaultDataDir(false);
     }
     if (fNetSpecific)
         path /= BaseParams().DataDir();

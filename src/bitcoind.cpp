@@ -13,6 +13,7 @@
 #include "httpserver.h"
 #include "httprpc.h"
 #include "rpcserver.h"
+#include "datadirmigration.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
@@ -89,8 +90,10 @@ bool AppInit(int argc, char* argv[])
             fprintf(stderr, "Error: Specified data directory \"%s\" does not exist.\n", mapArgs["-datadir"].c_str());
             return false;
         }
-        try
-        {
+        DatadirMigration migration; // for Bitcoin Cash
+        migration.migrateToCashIfNeeded();
+        migration.updateConfig();
+        try {
             ReadConfigFile(mapArgs, mapMultiArgs);
         } catch (const std::exception& e) {
             fprintf(stderr,"Error reading configuration file: %s\n", e.what());
