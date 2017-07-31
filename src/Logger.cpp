@@ -122,7 +122,9 @@ short Log::Manager::section(const char *category)
         return Log::Global;
     auto iter = d->categoryMapping.find(category);
     assert (iter != d->categoryMapping.end());
-    return iter->second;
+    if (iter == d->categoryMapping.end())
+        return iter->second;
+    return Log::Global;
 }
 
 Log::Manager *Log::Manager::instance()
