@@ -3177,7 +3177,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
             // this is a UAHF-chain block!
             logInfo(8002) << "Check block found an UAHF chain block (based on timestamp)" << pindexPrev->nHeight + 1 << block.GetHash();
 
-            if (pindexPrev->pprev->GetMedianTimePast() < startTime) {
+            if (pindexPrev->pprev && pindexPrev->pprev->GetMedianTimePast() < startTime) {
                 logInfo(8002) << " + block is the anti-rollback block!" << pindexPrev->nHeight + 1 << "size:" << blockSize;
                 // If UAHF is enabled for the curent block, but not for the previous
                 // block, we must check that the block is larger than 1MB.
