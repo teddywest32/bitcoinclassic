@@ -373,8 +373,8 @@ bool Blocks::DB::CacheAllBlockInfos()
 
     if (Application::uahfChainState() != Application::UAHFDisabled) {
         uint256 uahfStartBlockId;
-        Read(DB_UAHF_FORK_BLOCK, uahfStartBlockId);
-        if (!uahfStartBlockId.IsNull()) {
+        bool found = Read(DB_UAHF_FORK_BLOCK, uahfStartBlockId);
+        if (found && !uahfStartBlockId.IsNull()) {
             auto mi = Blocks::indexMap.find(uahfStartBlockId);
             if (mi != Blocks::indexMap.end()) {
                 d->uahfStartBlock = mi->second;
