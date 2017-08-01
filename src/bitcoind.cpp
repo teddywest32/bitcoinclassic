@@ -85,13 +85,21 @@ bool AppInit(int argc, char* argv[])
 
     try
     {
-        if (!boost::filesystem::is_directory(GetDataDir(false)))
-        {
-            fprintf(stderr, "Error: Specified data directory \"%s\" does not exist.\n", mapArgs["-datadir"].c_str());
-            return false;
+        std::string dd = GetArg("-datadir", "");
+        if (!dd.empty()) {
+            auto path = boost::filesystem::system_complete(dd);
+            if (!boost::filesystem::is_directory(path)) {
+                fprintf(stderr, "Error: Specified data directory \"%s\" does not exist.\n", dd.c_str());
+                return false;
+            }
         }
         DatadirMigration migration; // for Bitcoin Cash
-        migration.migrateToCashIfNeeded();
+        try {
+            migration.migrateToCashIfNeeded();
+        } catch (const std::exception &e) {
+            logFatal(6001) << "Failed to migrate" << e;
+            return 1;
+        }
         migration.updateConfig();
         try {
             ReadConfigFile(mapArgs, mapMultiArgs);

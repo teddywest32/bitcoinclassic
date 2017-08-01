@@ -598,14 +598,19 @@ int main(int argc, char *argv[])
         }
     }
     DatadirMigration migration; // for Bitcoin Cash
-    try {
-        migration.migrateToCashIfNeeded();
-    } catch (const std::exception &e) {
-        logFatal(6001) << "Failed to migrate" << e;
-        QMessageBox::critical(0, QObject::tr("Bitcoin Classic"),
-                              QObject::tr("Failed to migrate data dir. Please check logfile in 'to' dir.\nFrom: %1\nTo: %2")
-                              .arg(QString::fromStdString(migration.from())).arg(QString::fromStdString(migration.to())));
-        return 1;
+    if (migration.needsMigration()) {
+        try {
+            migration.migrateToCashIfNeeded();
+            QMessageBox::information(0, QObject::tr("Bitcoin Classic"),
+                                  QObject::tr("First time starting Bitcoin Cash. Welcome!\nSuccessfully separated datadirs\nOriginal: %1\nCash: %2")
+                                  .arg(QString::fromStdString(migration.from())).arg(QString::fromStdString(migration.to())));
+        } catch (const std::exception &e) {
+            logFatal(6001) << "Failed to migrate" << e;
+            QMessageBox::critical(0, QObject::tr("Bitcoin Classic"),
+                                  QObject::tr("Failed to migrate data dir. Please check logfile in 'to' dir.\nFrom: %1\nTo: %2")
+                                  .arg(QString::fromStdString(migration.from())).arg(QString::fromStdString(migration.to())));
+            return 1;
+        }
     }
 
     migration.updateConfig();
