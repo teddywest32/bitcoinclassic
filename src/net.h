@@ -802,6 +802,7 @@ private:
     boost::filesystem::path pathAddr;
 public:
     CAddrDB();
+    CAddrDB(const boost::filesystem::path &peersFilename);
     bool Write(const CAddrMan& addr);
     bool Read(CAddrMan& addr);
     bool Read(CAddrMan& addr, CDataStream& ssPeers);
@@ -814,6 +815,7 @@ private:
     boost::filesystem::path pathBanlist;
 public:
     CBanDB();
+    CBanDB(const boost::filesystem::path &banlistFilename);
     bool Write(const banmap_t& banSet);
     bool Read(banmap_t& banSet);
 };

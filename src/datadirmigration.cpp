@@ -19,6 +19,8 @@
 #include "ui_interface.h"
 
 #include "util.h"
+#include "net.h"
+#include "addrman.h"
 #include "chainparams.h"
 
 #include <iostream>
@@ -74,12 +76,6 @@ void DatadirMigration::updateConfig()
         return;
     boost::filesystem::path path = GetDefaultDataDir(m_migrationFinished);
     mapArgs["-datadir"] = path.string();
-
-    // add a boolean to something like application ? That decides which magic we use in peer.dat/banlist.dat and set it.
-    // copy the utxo, read banlist and the peer list, change magic and write them out again.
-
-    // copy the bitcoin.conf, copy the logs.conf (or create one?)
-    // other?
 }
 
 
@@ -185,12 +181,31 @@ void DatadirMigration::migrateToCashIfNeeded()
     config << "\nblockdatadir=" << from.string() << "\n";
     config.close();
 
-    // TODO
-    // read old peers.dat
-    // read old banlist.dat
-    // change magic
-    // write new peers.dat
-    // write new banlist.dat
+    // make sure we can read the old 'magic' by briefly turning off uahf.
+    const std::string oldUahf = GetArg("-uahfstarttime", "0");
+    mapArgs["-uahfstarttime"] = "0";
+    CAddrDB reader(from / "peers.dat");
+    CAddrMan peersDb;
+    bool peersOk = reader.Read(peersDb);
+    CBanDB banReader(from / "banlist.dat");
+    banmap_t banMap;
+    bool banOk = banReader.Read(banMap);
+
+    // turn uahf on again.
+    if (oldUahf == "0")
+        mapArgs.erase("-uahfstarttime");
+    else
+        mapArgs["-uahfstarttime"] = oldUahf;
+
+    if (peersOk) {
+        CAddrDB writer(to / "peers.dat");
+        writer.Write(peersDb);
+    }
+    if (banOk) {
+        CBanDB writer(to / "banlist.dat");
+        writer.Write(banMap);
+    }
+    logInfo(42) << "Finished migration, removing placeholder";
 
     // remove PLACEHOLDER_FILENAME
     boost::filesystem::remove(to / PLACEHOLDER_FILENAME);

@@ -56,8 +56,12 @@ public:
     };
 
     const Consensus::Params& GetConsensus() const { return consensus; }
+    /// return the original message-start
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
+    /// return the Cash-chain message-start. Only useful when UAHF is active
     const CMessageHeader::MessageStartChars& CashMessageStart() const { return pchMessageStartCash; }
+    /// return either of the MessageStart/CashMessageStart based on config options.
+    const CMessageHeader::MessageStartChars& magic() const;
     int GetDefaultPort() const { return nDefaultPort; }
 
     const CBlock& GenesisBlock() const { return genesis; }
