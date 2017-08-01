@@ -108,9 +108,9 @@ struct BlockHashShortener {
 };
 
 /** Open a block file (blk?????.dat) */
-FILE* openFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+FILE* openFile(const CDiskBlockPos &pos, bool fReadOnly);
 /** Open an undo file (rev?????.dat) */
-FILE* openUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+FILE* openUndoFile(const CDiskBlockPos &pos, bool fReadOnly);
 /** Translation to a filesystem path */
 boost::filesystem::path getFilepathForIndex(int fileIndex, const char *prefix);
 

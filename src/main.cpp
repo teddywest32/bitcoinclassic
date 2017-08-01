@@ -1236,7 +1236,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::P
 bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(Blocks::openFile(pos), SER_DISK, CLIENT_VERSION);
+    CAutoFile fileout(Blocks::openFile(pos, false), SER_DISK, CLIENT_VERSION);
     if (fileout.IsNull())
         return error("WriteBlockToDisk: OpenBlockFile failed");
 
@@ -1641,7 +1641,7 @@ namespace {
 bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(Blocks::openUndoFile(pos), SER_DISK, CLIENT_VERSION);
+    CAutoFile fileout(Blocks::openUndoFile(pos, false), SER_DISK, CLIENT_VERSION);
     if (fileout.IsNull())
         return error("%s: OpenUndoFile failed", __func__);
 
@@ -1819,7 +1819,7 @@ void static FlushBlockFile(bool fFinalize = false)
 
     CDiskBlockPos posOld(nLastBlockFile, 0);
 
-    FILE *fileOld = Blocks::openFile(posOld);
+    FILE *fileOld = Blocks::openFile(posOld, false);
     if (fileOld) {
         if (fFinalize)
             TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nSize);
@@ -1827,7 +1827,7 @@ void static FlushBlockFile(bool fFinalize = false)
         fclose(fileOld);
     }
 
-    fileOld = Blocks::openUndoFile(posOld);
+    fileOld = Blocks::openUndoFile(posOld, false);
     if (fileOld) {
         if (fFinalize)
             TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nUndoSize);
@@ -2963,7 +2963,7 @@ bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAdd
             if (fPruneMode)
                 fCheckForPruning = true;
             if (CheckDiskSpace(nNewChunks * BLOCKFILE_CHUNK_SIZE - pos.nPos)) {
-                FILE *file = Blocks::openFile(pos);
+                FILE *file = Blocks::openFile(pos, true);
                 if (file) {
                     LogPrintf("Pre-allocating up to position 0x%x in blk%05u.dat\n", nNewChunks * BLOCKFILE_CHUNK_SIZE, pos.nFile);
                     AllocateFileRange(file, pos.nPos, nNewChunks * BLOCKFILE_CHUNK_SIZE - pos.nPos);
@@ -2996,7 +2996,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
         if (fPruneMode)
             fCheckForPruning = true;
         if (CheckDiskSpace(nNewChunks * UNDOFILE_CHUNK_SIZE - pos.nPos)) {
-            FILE *file = Blocks::openUndoFile(pos);
+            FILE *file = Blocks::openUndoFile(pos, true);
             if (file) {
                 LogPrintf("Pre-allocating up to position 0x%x in rev%05u.dat\n", nNewChunks * UNDOFILE_CHUNK_SIZE, pos.nFile);
                 AllocateFileRange(file, pos.nPos, nNewChunks * UNDOFILE_CHUNK_SIZE - pos.nPos);
