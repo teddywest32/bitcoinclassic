@@ -38,6 +38,8 @@ public:
     CChain headersChain;
     std::list<CBlockIndex*> headerChainTips;
     CBlockIndex *uahfStartBlock;
+
+    std::vector<std::string> blocksDataDirs;
 };
 }
 

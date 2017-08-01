@@ -96,6 +96,13 @@ public:
     CBlockIndex *uahfForkBlock() const;
     bool setUahfForkBlock(CBlockIndex *index);
 
+    void loadConfig();
+
+    /// \internal
+    DBPrivate *priv() {
+        return d;
+    }
+
 private:
     static DB *s_instance;
     DBPrivate* d;
@@ -111,8 +118,13 @@ struct BlockHashShortener {
 FILE* openFile(const CDiskBlockPos &pos, bool fReadOnly);
 /** Open an undo file (rev?????.dat) */
 FILE* openUndoFile(const CDiskBlockPos &pos, bool fReadOnly);
-/** Translation to a filesystem path */
-boost::filesystem::path getFilepathForIndex(int fileIndex, const char *prefix);
+/**
+ * Translation to a filesystem path.
+ * @param fileIndex the number. For instance blk12345.dat is 12345.
+ * @param prefix either "blk" or "rev"
+ * @param fFindHarder set this to true if you want a path outside our main data-directory
+ */
+boost::filesystem::path getFilepathForIndex(int fileIndex, const char *prefix, bool fFindHarder = false);
 
 // Protected by cs_main
 typedef boost::unordered_map<uint256, CBlockIndex*, BlockHashShortener> BlockMap;

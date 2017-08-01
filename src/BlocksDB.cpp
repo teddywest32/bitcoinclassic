@@ -171,7 +171,7 @@ void reimportBlockFiles(std::vector<boost::filesystem::path> vImportFiles)
         int nFile = 0;
         while (!ShutdownRequested()) {
             CDiskBlockPos pos(nFile, 0);
-            if (!boost::filesystem::exists(Blocks::getFilepathForIndex(pos.nFile, "blk")))
+            if (!boost::filesystem::exists(Blocks::getFilepathForIndex(pos.nFile, "blk", true)))
                 break; // No block files left to reindex
             FILE *file = Blocks::openFile(pos, true);
             if (!file)
@@ -266,6 +266,7 @@ Blocks::DB::DB(size_t nCacheSize, bool fMemory, bool fWipe)
       d(new DBPrivate())
 {
     d->isReindexing = Exists(DB_REINDEX_FLAG);
+    loadConfig();
 }
 
 Blocks::DB::~DB()
@@ -487,6 +488,19 @@ bool Blocks::DB::setUahfForkBlock(CBlockIndex *index)
     return Write(DB_UAHF_FORK_BLOCK, d->uahfStartBlock->GetBlockHash());
 }
 
+void Blocks::DB::loadConfig()
+{
+    d->blocksDataDirs.clear();
+
+    for (auto dir : mapMultiArgs["-blockdatadir"]) {
+        if (boost::filesystem::is_directory(boost::filesystem::path(dir) / "blocks")) {
+            d->blocksDataDirs.push_back(dir);
+        } else {
+            logCritical(4000) << "invalid blockdatadir passed. No 'blocks' subdir found, skipping:"<< dir;
+        }
+    }
+}
+
 void Blocks::DBPrivate::updateUahfProperties()
 {
     assert(uahfStartBlock);
@@ -506,7 +520,7 @@ static FILE* OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fRe
 {
     if (pos.IsNull())
         return NULL;
-    boost::filesystem::path path = Blocks::getFilepathForIndex(pos.nFile, prefix);
+    boost::filesystem::path path = Blocks::getFilepathForIndex(pos.nFile, prefix, fReadOnly);
     boost::filesystem::create_directories(path.parent_path());
     FILE* file = fopen(path.string().c_str(), "rb+");
     if (!file && !fReadOnly)
@@ -533,9 +547,19 @@ FILE* Blocks::openUndoFile(const CDiskBlockPos &pos, bool fReadOnly) {
     return OpenDiskFile(pos, "rev", fReadOnly);
 }
 
-boost::filesystem::path Blocks::getFilepathForIndex(int fileIndex, const char *prefix)
+boost::filesystem::path Blocks::getFilepathForIndex(int fileIndex, const char *prefix, bool fFindHarder)
 {
-    return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, fileIndex);
+    auto path = GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, fileIndex);
+    if (fFindHarder && !boost::filesystem::exists(path)) {
+        DBPrivate *d = Blocks::DB::instance()->priv();
+        for (const std::string &dir : d->blocksDataDirs) {
+            boost::filesystem::path alternatePath(dir);
+            alternatePath = alternatePath / "blocks" / strprintf("%s%05u.dat", prefix, fileIndex);
+            if (boost::filesystem::exists(alternatePath))
+                return alternatePath;
+        }
+    }
+    return path;
 }
 
 

@@ -3439,8 +3439,9 @@ void PruneOneBlockFile(const int fileNumber)
 void UnlinkPrunedFiles(std::set<int>& setFilesToPrune)
 {
     for (set<int>::iterator it = setFilesToPrune.begin(); it != setFilesToPrune.end(); ++it) {
-        boost::filesystem::remove(Blocks::getFilepathForIndex(*it, "blk"));
-        boost::filesystem::remove(Blocks::getFilepathForIndex(*it, "rev"));
+        boost::system::error_code ec;
+        boost::filesystem::remove(Blocks::getFilepathForIndex(*it, "blk"), ec);
+        boost::filesystem::remove(Blocks::getFilepathForIndex(*it, "rev"), ec);
         LogPrintf("Prune: %s deleted blk/rev (%05u)\n", __func__, *it);
     }
 }

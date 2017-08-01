@@ -244,6 +244,7 @@ static void addGeneralOptions(AllowedArgs& allowedArgs, HelpMessageMode mode)
         .addArg("reindex", optionalBool, _("Rebuild block chain index from current blk000??.dat files on startup"))
         .addArg("txindex", optionalBool, strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), DEFAULT_TXINDEX))
         .addArg("uahfstarttime", requiredInt, "BCC (UAHF) chain start time, in seconds since epoch")
+        .addArg("blockdatadir=<dir>", requiredStr, "List a fallback directory to find blocks/blk* files")
         ;
 }
 
