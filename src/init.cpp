@@ -1076,6 +1076,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             fLoaded = true;
         } while(false);
 
+        if (fRequestShutdown)
+            break;
+
         if (!fLoaded) {
             // first suggest a reindex
             if (!fReset) {

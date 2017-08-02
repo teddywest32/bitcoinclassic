@@ -3600,6 +3600,80 @@ bool LoadBlockIndexDB()
         return true;
     chainActive.SetTip(it->second);
 
+    if (Application::uahfChainState() != Application::UAHFDisabled) {
+        bool needsRollback = false;
+        // check if we are indeed on the proper chain.
+        CBlockIndex *forkBlock = Blocks::DB::instance()->uahfForkBlock();
+        int forkHeight = -1;
+        if (forkBlock) {
+            if (!chainActive.Contains(forkBlock)) {
+                logWarning(8002) << "The UAHF fork-block is not in the main chain! Height:" << forkBlock->nHeight;
+                needsRollback = true;
+            }
+        } else {
+            // there could be two reasons, either Classic wasn't the one finding the fork-block,
+            // and thus didn't store its hash, or we are on the wrong chain.
+
+            assert(Application::uahfStartTime() > 0);
+            CBlockIndex *blockIndex = it->second;
+            while (blockIndex && blockIndex->GetMedianTimePast() > Application::uahfStartTime())
+                blockIndex = blockIndex->pprev;
+            if (blockIndex) {
+                forkHeight = blockIndex->nHeight + 1;
+                needsRollback = true;
+                // this is the last valid shared block. Lets see about the next one.
+                forkBlock = chainActive[forkHeight];
+                if (forkBlock) {
+                    try {
+                        CDiskBlockPos pos = forkBlock->GetBlockPos();
+                        CAutoFile file(Blocks::openFile(pos, true), SER_DISK, CLIENT_VERSION);
+                        CBlock block;
+                        file >> block;
+                        needsRollback = ::GetSerializeSize(block, SER_DISK, CLIENT_VERSION) <= MAX_BLOCK_SIZE;
+
+                        if (!needsRollback) // remember for next time.
+                            Blocks::DB::instance()->setUahfForkBlock(forkBlock);
+                    } catch (const std::exception &e) {
+                        if (fPruneMode) {
+                            // can't decide myself. Let the user decide.
+                            logWarning(8002) << "I could not verify if this is in reality an UAHF chain, due to pruning, "
+                                                "if you fail to get any blocks you may have to reindex.";
+                        } else {
+                            logInfo(8002) << "Failed to find the fork-off block. Reason:" << e;
+                        }
+                    }
+                }
+            }
+        }
+        if (needsRollback) {
+            logCritical(8002) << "Detected your chain was not UAHF, will need to rollback to the fork-block!";
+            if (forkHeight > 0) {
+                logInfo(8002) << " Fork-block is at:" << forkHeight;
+                uiInterface.InitMessage(strprintf("Rolling back chain to UAHF-branch-point (%d blocks)...",
+                                    chainActive.Tip()->nHeight - forkHeight));
+            } else {
+                uiInterface.InitMessage("Rolling back chain to UAHF-branch-point...");
+            }
+
+            while (chainActive.Tip()->GetMedianTimePast() > Application::uahfStartTime()) {
+                logInfo(8002) << " reverting" << chainActive.Tip()->GetBlockHash() << chainActive.Tip()->nHeight;
+                CValidationState state;
+                bool ok = DisconnectTip(state, Params().GetConsensus());
+                if (!ok) {
+                    logFatal(8002) << "Failed to revert a block, likely due to a database error. This is fata;. Shutting down now";
+                    AbortNode(state, "Failed to revert a block, likely due to a database error. This is fata;. Shutting down now");
+                    return false;
+                }
+                if (ShutdownRequested())
+                    return false;
+            }
+            // next block is the big, fork-block.
+            Application::setUahfChainState(Application::UAHFRulesActive);
+            logInfo(8002) << "Waiting for fork block. UAHF rules active";
+            pcoinsTip->Flush();
+        }
+    }
+
     PruneBlockIndexCandidates();
 
     LogPrintf("%s: hashBestChain=%s height=%d date=%s progress=%f\n", __func__,
