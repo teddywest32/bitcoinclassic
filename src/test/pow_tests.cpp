@@ -124,19 +124,18 @@ BOOST_AUTO_TEST_CASE(retargeting_test) {
 
     CBlockHeader blkHeaderDummy;
 
-    // We start getting 2h blocks time. For the first 5 blocks, it doesn't
-    // matter as the MTP is not affected. For the next 5 block, MTP difference
+    // We start getting 2h blocks time. For the first 10 blocks, it doesn't
+    // matter as the MTP is not affected. For the next 10 block, MTP difference
     // increases but stays below 12h.
     for (size_t i = 1000; i < 1010; i++) {
         blocks[i] = GetBlockIndex(&blocks[i - 1], 2 * 3600, 0x207fffff);
-        BOOST_CHECK_EQUAL(
-            GetNextWorkRequired(&blocks[i], &blkHeaderDummy, params), 0x207fffff);
+        BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[i], &blkHeaderDummy, params), 0x207fffff);
     }
 
     // turn UAHF off.
     mapArgs["-uahfstarttime"] = "0";
     MockApplication::doInit();
-    // unchanged.
+    // Add one more 2 hour block. Without UAHF this makes the POW unchanged.
     blocks[1010] = GetBlockIndex(&blocks[1009], 2 * 3600, 0x207fffff);
     BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[1010], &blkHeaderDummy, params), 0x207fffff);
 
@@ -144,7 +143,6 @@ BOOST_AUTO_TEST_CASE(retargeting_test) {
     mapArgs["-uahfstarttime"] = "1501590000";
     MockApplication::doInit();
     // Now we expect the difficulty to decrease.
-    blocks[1010] = GetBlockIndex(&blocks[1009], 2 * 3600, 0x207fffff);
     BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[1010], &blkHeaderDummy, params), 0x1d00ffff);
 }
 
